@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>神経衰弱</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <img id = "mypic" onclick = "slideshow()" src="images/card_back.png" width = "136px" height = "200px">
+    <img id = "mypic1" onclick = "slideshow1()" src="images/card_back.png" width = "136px" height = "200px">
+    <script>
+    var pics_src = new Array("images/card_back.png","images/card_spade_01.png");
+    var pics_src2 = new Array("images/card_back.png","images/card_spade_02.png");
+    var num1 = 0;
+    var num2 = 0;
+
+    function slideshow(){
+        if (num1 == 1) {
+            num1 = 0;
+        }
+        else {
+            num1 ++;
+        }
+        document.getElementById("mypic").src = pics_src[num1];
+    }
+
+    function slideshow1(){
+        if (num2 == 1) {
+            num2 = 0;
+        }
+        else {
+            num2 ++;
+        }
+        document.getElementById("mypic1").src = pics_src2[num2];
+    }
+    </script>
+    </body>
+</html>

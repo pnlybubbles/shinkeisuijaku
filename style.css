@@ -1,0 +1,14 @@
+.table {
+    position: relative;
+}
+
+.cover {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.cover img {
+    width: 136px;
+    height: 200px;
+}
