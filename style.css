@@ -1,14 +1,91 @@
-.table {
-    position: relative;
+:root {
+  --card-width: 100px;
 }
 
-.cover {
-    position: absolute;
-    top: 0;
-    left: 0;
+.root {
+  position: relative;
+  font-family: 'Avenir', sans-serif;
+  border: 2px solid #d33;
+  padding: 4px;
 }
 
-.cover img {
-    width: 136px;
-    height: 200px;
+.root__table {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.root__table.complete {
+  filter: blur(15px);
+}
+
+.card {
+  position: relative;
+}
+
+.card__img {
+  display: block;
+  width: var(--card-width);
+}
+
+.card__clear {
+  position: absolute;
+  z-index: 1;
+  background-color: rgba(0, 0, 0, 0.3);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.modal {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal__window {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modal__label {
+  font-size: 36px;
+  color: #d33;
+  margin-bottom: 8px;
+}
+
+.modal__button {
+  background-color: transparent;
+  border-color: #d33;
+  border-width: 1px;
+  border-style: solid;
+  padding: 8px 16px 8px;
+  color: #d33;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  transition: all 0.3s;
+}
+
+.modal__button:hover {
+  background-color: #d33;
+  color: #fff;
+}
+
+.modal__button:active {
+  opacity: 0.8;
+  transition: none;
 }
