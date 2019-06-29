@@ -18,6 +18,39 @@
   filter: blur(15px);
 }
 
+.root__skip-button {
+  background-color: transparent;
+  border-color: #d33;
+  border-width: 1px;
+  border-style: solid;
+  padding: 8px 16px 8px;
+  color: #d33;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  transition: all 0.3s;
+  display: none;
+}
+
+.root__skip-button:hover {
+  background-color: #d33;
+  color: #fff;
+}
+
+.root__skip-button:active {
+  opacity: 0.8;
+  transition: none;
+}
+
+.root__skip-button.active {
+  display: block;
+}
+
 .card {
   position: relative;
 }

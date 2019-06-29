@@ -1,7 +1,7 @@
 import { app, html, logger, classNames } from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
-const TABLE_SIZE = 10
+const TABLE_SIZE = 6
 
 const cardPath = index =>
   `./images/card_spade_${index.toString().padStart(2, '0')}.png`
@@ -41,6 +41,15 @@ const render = state => {
           renderCard(v, i, state.fliped.includes(i), state.clear.includes(i))
         )}
       </div>
+      <button
+        class="${classNames([
+          'root__skip-button',
+          { active: state.isSkipable }
+        ])}"
+        onclick=${() => emit(ACTION.skip)}
+      >
+        Skip
+      </button>
       ${isComplete ? renderClearModal() : ``}
     </main>
   `
@@ -48,12 +57,16 @@ const render = state => {
 
 const initialState = () => {
   const singleTable = new Array(TABLE_SIZE).fill(0).map((_, i) => i + 1)
-  const table = singleTable.concat(singleTable).sort(() => Math.random() - 0.5)
+  const table = singleTable
+    .concat(singleTable)
+    .concat(singleTable)
+    .sort(() => Math.random() - 0.5)
   return {
     table,
     fliped: [],
     clear: [],
-    busy: false
+    busy: false,
+    isSkipable: false
   }
 }
 
@@ -64,31 +77,43 @@ const debugInitialState = () => {
     table,
     fliped: [],
     clear: new Array(TABLE_SIZE * 2).fill(0).map((_, i) => i),
-    busy: false
+    busy: false,
+    isSkipable: false
   }
 }
 
 const ACTION = {
   flip: 'FLIP',
-  reset: 'RESET'
+  reset: 'RESET',
+  skip: 'SKIP'
 }
 
 const mutation = (state, action, payload) => {
   switch (action) {
     case ACTION.flip:
       const { index } = payload
-      if (state.fliped.length === 2) {
+      if (state.fliped.length === 3) {
         return { ...state, fliped: [index] }
       } else {
-        const prevIndex = state.fliped[0]
-        if (prevIndex === index) {
+        if (state.fliped.includes(index)) {
           return state
         }
+        const isSkipable =
+          state.fliped.length === 1 &&
+          state.table[state.fliped[0]] !== state.table[index]
         const newClear =
-          state.table[prevIndex] === state.table[index]
-            ? [...state.clear, prevIndex, index]
+          state.fliped.length === 2 &&
+          state.fliped
+            .map(i => state.table[i])
+            .every(v => v === state.table[index])
+            ? [...state.clear, ...state.fliped, index]
             : state.clear
-        return { ...state, fliped: [...state.fliped, index], clear: newClear }
+        return {
+          ...state,
+          fliped: [...state.fliped, index],
+          clear: newClear,
+          isSkipable
+        }
       }
     case ACTION.reset:
       return initialState()
