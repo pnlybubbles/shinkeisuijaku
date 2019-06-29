@@ -1,4 +1,4 @@
-import { app, html, logger } from './lib.js'
+import { app, html, logger, classNames } from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
 const TABLE_SIZE = 10
@@ -6,18 +6,22 @@ const TABLE_SIZE = 10
 const cardPath = index =>
   `./images/card_spade_${index.toString().padStart(2, '0')}.png`
 
-const renderCard = (emit, number, index, isFlip, isClear) => {
+const renderCard = (number, index, isFlip, isClear) => {
   return html`
-    <div class="card" onclick="${() => emit(ACTION.flip, index)}">
+    <div class="card" onclick="${() => emit(ACTION.flip, { index })}">
       ${isFlip || isClear
-        ? `<img class="card__img front" src="${cardPath(number)}" />`
-        : `<img class="card__img back" src="${BACK_CARD_PATH}" />`}
-      ${isClear ? `<div class='card__clear'></div>` : ``}
+        ? html`
+            <img class="card__img front" src="${cardPath(number)}" />
+          `
+        : html`
+            <img class="card__img back" src="${BACK_CARD_PATH}" />
+          `}
+      <div class="${classNames(['card__clear', { active: isClear }])}"></div>
     </div>
   `
 }
 
-const renderClearModal = emit => html`
+const renderClearModal = () => html`
   <div class="modal">
     <div class="modal__window">
       <div class="modal__label">Clear!</div>
@@ -28,22 +32,16 @@ const renderClearModal = emit => html`
   </div>
 `
 
-const render = (emit, state) => {
+const render = state => {
   const isComplete = state.clear.length === state.table.length
   return html`
     <main class="root">
       <div class="${['root__table', isComplete ? 'complete' : ''].join(' ')}">
         ${state.table.map((v, i) =>
-          renderCard(
-            emit,
-            v,
-            i,
-            state.fliped.includes(i),
-            state.clear.includes(i)
-          )
+          renderCard(v, i, state.fliped.includes(i), state.clear.includes(i))
         )}
       </div>
-      ${isComplete ? renderClearModal(emit) : ``}
+      ${isComplete ? renderClearModal() : ``}
     </main>
   `
 }
@@ -54,7 +52,8 @@ const initialState = () => {
   return {
     table,
     fliped: [],
-    clear: []
+    clear: [],
+    busy: false
   }
 }
 
@@ -64,7 +63,8 @@ const debugInitialState = () => {
   return {
     table,
     fliped: [],
-    clear: new Array(TABLE_SIZE * 2).fill(0).map((_, i) => i)
+    clear: new Array(TABLE_SIZE * 2).fill(0).map((_, i) => i),
+    busy: false
   }
 }
 
@@ -73,10 +73,10 @@ const ACTION = {
   reset: 'RESET'
 }
 
-const mutation = (state, action, args) => {
+const mutation = (state, action, payload) => {
   switch (action) {
     case ACTION.flip:
-      const index = args[0]
+      const { index } = payload
       if (state.fliped.length === 2) {
         return { ...state, fliped: [index] }
       } else {
@@ -97,4 +97,12 @@ const mutation = (state, action, args) => {
   }
 }
 
-app(document.querySelector('#app'), initialState(), [logger], mutation, render)
+const { emit, use, run } = app(
+  document.querySelector('#app'),
+  initialState(),
+  mutation,
+  render
+)
+
+use(logger)
+run()
