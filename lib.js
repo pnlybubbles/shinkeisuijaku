@@ -337,9 +337,14 @@ const EFFECT = {
   TAKE: 'TAKE',
   FORK: 'FORK',
   CALL: 'CALL',
-  PUT: 'PUT'
+  PUT: 'PUT',
+  GET: 'GET'
 }
 
+/**
+ * アクションが呼ばれるまで待機する。ペイロードを返す。
+ * @param {*} action
+ */
 const take = action => {
   return {
     effect: EFFECT.TAKE,
@@ -349,6 +354,11 @@ const take = action => {
   }
 }
 
+/**
+ * 非同期の関数を呼び出す。非同期関数の実行結果を返す。
+ * @param {(...any) => Promise} asyncTask 非同期関数
+ * @param  {...any} args 非同期関数にわたす引数
+ */
 const call = (asyncTask, ...args) => {
   return {
     effect: EFFECT.CALL,
@@ -359,6 +369,11 @@ const call = (asyncTask, ...args) => {
   }
 }
 
+/**
+ * アクションを実行する。
+ * @param {*} action ディスパッチするアクション
+ * @param {*} payload ディスパッチするペイロード
+ */
 const put = (action, payload) => {
   return {
     effect: EFFECT.PUT,
@@ -369,6 +384,17 @@ const put = (action, payload) => {
   }
 }
 
+const get = () => {
+  return {
+    effect: EFFECT.GET,
+    args: {}
+  }
+}
+
+/**
+ * コルーチンを起動する
+ * @param {GeneratorFunction} routine コルーチン
+ */
 const fork = routine => {
   return {
     effect: EFFECT.FORK,
@@ -382,62 +408,64 @@ export const effect = {
   call,
   put,
   take,
-  fork
+  fork,
+  get
 }
 
 export const recycler = cycleGenerator => emit => getState => {
-  const gen = cycleGenerator(getState)
+  const gen = cycleGenerator()
   let waitingAction = null
-  cycle(emit, gen, action => {
+  const cycle = cycleBase(emit, gen, getState, action => {
     waitingAction = action
   })
+  cycle()
   return (action, payload) => {
     if (action === waitingAction) {
       waitingAction = null
-      cycle(
-        emit,
-        gen,
-        action => {
-          waitingAction = action
-        },
-        payload
-      )
+      cycle(payload)
     }
   }
 }
 
-const cycle = (emit, gen, cb, arg) => {
-  const { value, done } = gen.next(arg)
-  if (!done) {
-    const { effect, args } = value
-    switch (effect) {
-      case EFFECT.CALL: {
-        args
-          .asyncTask(args.args)
-          .then(v => cycle(emit, gen, cb, v))
-          .catch(e => {
-            throw e
-          })
-        break
-      }
-      case EFFECT.PUT: {
-        const { action, payload } = args
-        emit(action, payload)
-        cycle(emit, gen, cb)
-        break
-      }
-      case EFFECT.TAKE: {
-        const { action } = args
-        cb(action)
-        break
-      }
-      case EFFECT.FORK: {
-        const { routine } = args
-        cycle(emit, routine(), cb)
-        break
+const cycleBase = (emit, gen, getState, cb) => {
+  const cycle = arg => {
+    const { value, done } = gen.next(arg)
+    if (!done) {
+      const { effect, args } = value
+      switch (effect) {
+        case EFFECT.CALL: {
+          args
+            .asyncTask(args.args)
+            .then(v => cycle(v))
+            .catch(e => {
+              throw e
+            })
+          break
+        }
+        case EFFECT.PUT: {
+          const { action, payload } = args
+          emit(action, payload)
+          cycle()
+          break
+        }
+        case EFFECT.TAKE: {
+          const { action } = args
+          cb(action)
+          break
+        }
+        case EFFECT.FORK: {
+          const { routine } = args
+          cycleBase(emit, routine(), getState, cb)
+          break
+        }
+        case EFFECT.GET: {
+          cycle(getState())
+          break
+        }
       }
     }
   }
+  return cycle
 }
 
 export const delay = ms =>

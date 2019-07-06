@@ -40,38 +40,44 @@ const renderClearModal = () => html`
   </div>
 `
 
-const render = state => {
-  const isComplete = state.clear.length === state.table.length
+const isComplete = clear =>
+  Object.values(clear).flat().length === TABLE_SIZE * FLIP_MATCHING_COUNT
+
+const render = ({ clear, fliped, table, isSkipable }) => {
+  const isComp = isComplete(clear)
+  const isFlip = i => fliped.includes(i)
+  const isClear = i =>
+    Object.values(clear)
+      .flat()
+      .includes(i)
   return html`
     <main class="root">
-      <div class="${['root__table', isComplete ? 'complete' : ''].join(' ')}">
-        ${state.table.map((v, i) =>
-          renderCard(v, i, state.fliped.includes(i), state.clear.includes(i))
-        )}
+      <div class="${classNames(['root__table', { complete: isComp }])}">
+        ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
       </div>
       <button
-        class="${classNames([
-          'root__skip-button',
-          { active: state.isSkipable }
-        ])}"
+        class="${classNames(['root__skip-button', { active: isSkipable }])}"
         onclick=${() => emit(ACTION.skip)}
       >
         Skip
       </button>
-      ${isComplete ? renderClearModal() : ``}
+      ${isComp ? renderClearModal() : ``}
     </main>
   `
 }
 
-const PAYLER = {
-  YOU: 'you',
-  AI: 'ai'
+const PLAYER = {
+  YOU: 'YOU',
+  AI: 'AI'
 }
 
-const FLIP_MATCHING_COUNT = 3
+const FLIP_MATCHING_COUNT = 2
+
+const range = (offset, size) =>
+  new Array(size).fill(0).map((_, i) => offset + i)
 
 const initialState = () => {
-  const singleTable = new Array(TABLE_SIZE).fill(0).map((_, i) => i + 1)
+  const singleTable = range(1, TABLE_SIZE)
   const table = new Array(FLIP_MATCHING_COUNT)
     .fill(singleTable)
     .flat()
@@ -79,24 +85,20 @@ const initialState = () => {
   return {
     table,
     fliped: [],
-    clear: [],
-    playing: PAYLER.YOU,
+    clear: Object.fromEntries(Object.values(PLAYER).map(v => [v, []])),
+    playing: PLAYER.YOU,
+    playingTurn: [PLAYER.YOU, PLAYER.AI],
     isSkipable: false
   }
 }
 
 const debugInitialState = () => {
-  const singleTable = new Array(TABLE_SIZE).fill(0).map((_, i) => i + 1)
-  const table = new Array(FLIP_MATCHING_COUNT)
-    .fill(singleTable)
-    .flat()
-    .sort(() => Math.random() - 0.5)
   return {
-    table,
-    fliped: [],
-    clear: new Array(TABLE_SIZE * FLIP_MATCHING_COUNT).fill(0).map((_, i) => i),
-    playing: PAYLER.YOU,
-    isSkipable: false
+    ...initialState(),
+    clear: {
+      [PLAYER.YOU]: range(0, TABLE_SIZE * FLIP_MATCHING_COUNT),
+      [PLAYER.AI]: []
+    }
   }
 }
 
@@ -105,7 +107,8 @@ const ACTION = {
   flip: 'FLIP',
   unflip: 'UNFLIP',
   reset: 'RESET',
-  skip: 'SKIP'
+  skip: 'SKIP',
+  changePlayer: 'CHANGE_PLAYER'
 }
 
 const mutation = (state, action, payload) => {
@@ -114,30 +117,37 @@ const mutation = (state, action, payload) => {
       return { ...state, fliped: [] }
     case ACTION.flip:
       const { index } = payload
-      if (state.fliped.length === FLIP_MATCHING_COUNT) {
-        return { ...state, fliped: [index] }
-      } else {
-        if (state.fliped.includes(index)) {
-          return state
-        }
-        const isSkipable =
-          state.fliped.length === 1 &&
-          state.table[state.fliped[0]] !== state.table[index]
-        const isClear =
-          state.fliped.length === FLIP_MATCHING_COUNT - 1 &&
-          state.fliped
-            .map(i => state.table[i])
-            .every(v => v === state.table[index])
-        const newClear = isClear
-          ? [...state.clear, ...state.fliped, index]
-          : state.clear
+      const { fliped, table, clear, playing } = state
+      if (fliped.includes(index)) {
+        return state
+      }
+      const newFliped = [...fliped, index]
+      const isSkipable =
+        fliped.length >= 1 &&
+        fliped.length <= FLIP_MATCHING_COUNT - 2 &&
+        state.table[state.fliped[0]] !== state.table[index]
+      const isClear =
+        fliped.length === FLIP_MATCHING_COUNT - 1 &&
+        fliped.map(i => table[i]).every(v => v === table[index])
+      if (isClear) {
         return {
           ...state,
-          fliped: isClear ? [] : [...state.fliped, index],
-          clear: newClear,
+          fliped: [],
+          clear: {
+            ...clear,
+            [playing]: [...clear[playing], ...newFliped]
+          },
+          isSkipable
+        }
+      } else {
+        return {
+          ...state,
+          fliped: newFliped,
           isSkipable
         }
       }
+    case ACTION.changePlayer:
+      return { ...state, playing: payload.player }
     case ACTION.reset:
       return initialState()
     default:
@@ -145,15 +155,64 @@ const mutation = (state, action, payload) => {
   }
 }
 
-function* flipCycle(getState) {
+const playerCycleMapping = {
+  [PLAYER.YOU]: youCycle,
+  [PLAYER.AI]: aiCycle
+}
+
+function* gameCycle() {
   while (true) {
+    while (true) {
+      const { playingTurn } = yield effect.get()
+      for (const playing of playingTurn) {
+        // プレイヤーの変更
+        yield effect.put(ACTION.changePlayer, { player: playing })
+        // プレイヤーがめくる
+        yield* playerCycleMapping[playing]()
+        // めくられたのを裏っ返す
+        yield* unflipCycle()
+      }
+      const { clear } = yield effect.get()
+      if (isComplete(clear)) break
+    }
+    // リセットされるまで待つ
+    yield effect.take(ACTION.reset)
+  }
+}
+
+function* continueTurnCycle() {
+  const state = yield effect.get()
+  const canFlip = state.fliped.length < FLIP_MATCHING_COUNT
+  return canFlip && !isComplete(state.clear)
+}
+
+function* youCycle() {
+  while (yield* continueTurnCycle()) {
     const payload = yield effect.take(ACTION.clickFlip)
     yield effect.put(ACTION.flip, payload)
-    if (getState().fliped.length === FLIP_MATCHING_COUNT) {
-      yield effect.call(delay, 1000)
-      yield effect.put(ACTION.unflip)
-    }
   }
+}
+
+function* aiCycle() {
+  while (yield* continueTurnCycle()) {
+    yield effect.call(delay, 1000)
+    const state = yield effect.get()
+    const candidate = range(0, TABLE_SIZE * FLIP_MATCHING_COUNT).filter(
+      i =>
+        !state.fliped.includes(i) &&
+        !Object.values(state.clear)
+          .flat()
+          .includes(i)
+    )
+    yield effect.put(ACTION.flip, {
+      index: candidate[Math.floor(Math.random() * candidate.length)]
+    })
+  }
+}
+
+function* unflipCycle() {
+  yield effect.call(delay, 1000)
+  yield effect.put(ACTION.unflip)
 }
 
 const { emit, use, run } = app(
@@ -164,6 +223,6 @@ const { emit, use, run } = app(
 )
 
 use(logger())
-use(recycler(flipCycle))
+use(recycler(gameCycle))
 
 run()
