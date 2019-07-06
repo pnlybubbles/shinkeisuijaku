@@ -6,16 +6,20 @@
   position: relative;
   font-family: 'Avenir', sans-serif;
   border: 2px solid #d33;
+}
+
+.root__game {
+  z-index: 0;
   padding: 4px;
+}
+
+.root__game.blur {
+  filter: blur(15px);
 }
 
 .root__table {
   display: flex;
   flex-wrap: wrap;
-}
-
-.root__table.complete {
-  filter: blur(15px);
 }
 
 .root__skip-button {
@@ -85,12 +89,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 .modal__window {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.modal__container {
+  display: flex;
 }
 
 .modal__label {
@@ -116,6 +125,7 @@
   outline: none;
   user-select: none;
   transition: all 0.3s;
+  margin-bottom: 8px;
 }
 
 .modal__button:hover {
@@ -126,4 +136,13 @@
 .modal__button:active {
   opacity: 0.8;
   transition: none;
+}
+
+.modal__button.active {
+  background-color: #d33;
+  color: #fff;
+}
+
+.modal__button-wrap {
+  margin: 0 8px;
 }

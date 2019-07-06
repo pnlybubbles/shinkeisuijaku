@@ -9,7 +9,6 @@ import {
 } from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
-const TABLE_SIZE = 6
 
 const cardPath = index =>
   `./images/card_spade_${index.toString().padStart(2, '0')}.png`
@@ -29,39 +28,101 @@ const renderCard = (number, index, isFlip, isClear) => {
   `
 }
 
-const renderClearModal = () => html`
+const renderModal = (label, children) => html`
   <div class="modal">
     <div class="modal__window">
-      <div class="modal__label">Clear!</div>
-      <button class="modal__button" onclick=${() => emit(ACTION.reset)}>
-        Reset
-      </button>
+      <div class="modal__label">${label}</div>
+      ${children}
     </div>
   </div>
 `
 
-const isComplete = clear =>
-  Object.values(clear).flat().length === TABLE_SIZE * FLIP_MATCHING_COUNT
+const renderModalButton = (label, className, onClick) => html`
+  <button
+    class="${classNames(['modal__button', className])}"
+    onclick="${onClick}"
+  >
+    ${label}
+  </button>
+`
 
-const render = ({ clear, fliped, table, isSkipable }) => {
-  const isComp = isComplete(clear)
+const renderStartModal = config =>
+  renderModal(
+    'Start',
+    html`
+      <div class="modal__container">
+        <div class="modal__button-wrap vertical">
+          ${[
+            renderModalButton(
+              '2 Flip',
+              {
+                'modal__button-flip': true,
+                active: config.flipMatchingCount === 2
+              },
+              () => emit(ACTION.configFlip, { count: 2 })
+            ),
+            renderModalButton(
+              '3 Flip',
+              {
+                'modal__button-flip': true,
+                active: config.flipMatchingCount === 3
+              },
+              () => emit(ACTION.configFlip, { count: 3 })
+            )
+          ]}
+        </div>
+        <div class="modal__button-wrap vertical">
+          ${renderModalButton('Go!', 'modal__button-start', () =>
+            emit(ACTION.start)
+          )}
+        </div>
+      </div>
+    `
+  )
+
+const renderClearModal = () =>
+  renderModal(
+    'Clear!',
+    html`
+      <div>
+        ${renderModalButton('Reset', 'modal__button-reset', () =>
+          emit(ACTION.reset)
+        )}
+      </div>
+    `
+  )
+
+const renderStatusModal = (status, config) => {
+  switch (status) {
+    case STATUS.START:
+      return renderStartModal(config)
+    case STATUS.COMPLETE:
+      return renderClearModal()
+    default:
+      return ''
+  }
+}
+
+const objValue = obj => Object.values(obj).flat()
+
+const render = ({ clear, fliped, table, isSkipable, status, config }) => {
   const isFlip = i => fliped.includes(i)
-  const isClear = i =>
-    Object.values(clear)
-      .flat()
-      .includes(i)
+  const isClear = i => objValue(clear).includes(i)
+  const modal = renderStatusModal(status, config)
   return html`
     <main class="root">
-      <div class="${classNames(['root__table', { complete: isComp }])}">
-        ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
+      ${modal}
+      <div class="${classNames(['root__game', { blur: modal !== '' }])}">
+        <div class="root__table">
+          ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
+        </div>
+        <button
+          class="${classNames(['root__skip-button', { active: isSkipable }])}"
+          onclick=${() => emit(ACTION.skip)}
+        >
+          Skip
+        </button>
       </div>
-      <button
-        class="${classNames(['root__skip-button', { active: isSkipable }])}"
-        onclick=${() => emit(ACTION.skip)}
-      >
-        Skip
-      </button>
-      ${isComp ? renderClearModal() : ``}
     </main>
   `
 }
@@ -71,34 +132,43 @@ const PLAYER = {
   AI: 'AI'
 }
 
-const FLIP_MATCHING_COUNT = 2
+const STATUS = {
+  START: 'START',
+  PLAYING: 'PLAYING',
+  COMPLETE: 'COMPLETE'
+}
 
 const range = (offset, size) =>
   new Array(size).fill(0).map((_, i) => offset + i)
 
 const initialState = () => {
-  const singleTable = range(1, TABLE_SIZE)
-  const table = new Array(FLIP_MATCHING_COUNT)
+  const initialConfig = {
+    tableSize: 6,
+    flipMatchingCount: 2
+  }
+  return {
+    config: initialConfig,
+    ...initialGameState(initialConfig)
+  }
+}
+
+const initialGameState = config => {
+  const singleTable = range(1, config.tableSize)
+  const table = new Array(config.flipMatchingCount)
     .fill(singleTable)
     .flat()
     .sort(() => Math.random() - 0.5)
   return {
     table,
     fliped: [],
-    clear: Object.fromEntries(Object.values(PLAYER).map(v => [v, []])),
+    clear: {
+      [PLAYER.YOU]: [],
+      [PLAYER.AI]: []
+    },
     playing: PLAYER.YOU,
     playingTurn: [PLAYER.YOU, PLAYER.AI],
+    status: STATUS.START,
     isSkipable: false
-  }
-}
-
-const debugInitialState = () => {
-  return {
-    ...initialState(),
-    clear: {
-      [PLAYER.YOU]: range(0, TABLE_SIZE * FLIP_MATCHING_COUNT),
-      [PLAYER.AI]: []
-    }
   }
 }
 
@@ -107,9 +177,14 @@ const ACTION = {
   flip: 'FLIP',
   unflip: 'UNFLIP',
   reset: 'RESET',
+  start: 'START',
   skip: 'SKIP',
-  changePlayer: 'CHANGE_PLAYER'
+  changePlayer: 'CHANGE_PLAYER',
+  configFlip: 'CONFIG_FLIP'
 }
+
+const isComplete = (clear, table) =>
+  Object.values(clear).flat().length === table.length
 
 const mutation = (state, action, payload) => {
   switch (action) {
@@ -117,26 +192,30 @@ const mutation = (state, action, payload) => {
       return { ...state, fliped: [] }
     case ACTION.flip:
       const { index } = payload
-      const { fliped, table, clear, playing } = state
+      const { fliped, table, clear, playing, config } = state
       if (fliped.includes(index)) {
         return state
       }
       const newFliped = [...fliped, index]
       const isSkipable =
         fliped.length >= 1 &&
-        fliped.length <= FLIP_MATCHING_COUNT - 2 &&
+        fliped.length <= config.flipMatchingCount - 2 &&
         state.table[state.fliped[0]] !== state.table[index]
       const isClear =
-        fliped.length === FLIP_MATCHING_COUNT - 1 &&
+        fliped.length === config.flipMatchingCount - 1 &&
         fliped.map(i => table[i]).every(v => v === table[index])
       if (isClear) {
+        const newClear = {
+          ...clear,
+          [playing]: [...clear[playing], ...newFliped]
+        }
         return {
           ...state,
           fliped: [],
-          clear: {
-            ...clear,
-            [playing]: [...clear[playing], ...newFliped]
-          },
+          clear: newClear,
+          status: isComplete(newClear, table)
+            ? STATUS.COMPLETE
+            : STATUS.PLAYING,
           isSkipable
         }
       } else {
@@ -148,6 +227,14 @@ const mutation = (state, action, payload) => {
       }
     case ACTION.changePlayer:
       return { ...state, playing: payload.player }
+    case ACTION.configFlip:
+      const newConfig = { ...state.config, flipMatchingCount: payload.count }
+      return {
+        config: newConfig,
+        ...initialGameState(newConfig)
+      }
+    case ACTION.start:
+      return { ...state, status: STATUS.PLAYING }
     case ACTION.reset:
       return initialState()
     default:
@@ -162,6 +249,7 @@ const playerCycleMapping = {
 
 function* gameCycle() {
   while (true) {
+    yield effect.take(ACTION.start)
     while (true) {
       const { playingTurn } = yield effect.get()
       for (const playing of playingTurn) {
@@ -172,8 +260,8 @@ function* gameCycle() {
         // めくられたのを裏っ返す
         yield* unflipCycle()
       }
-      const { clear } = yield effect.get()
-      if (isComplete(clear)) break
+      const { status } = yield effect.get()
+      if (status === STATUS.COMPLETE) break
     }
     // リセットされるまで待つ
     yield effect.take(ACTION.reset)
@@ -182,8 +270,8 @@ function* gameCycle() {
 
 function* continueTurnCycle() {
   const state = yield effect.get()
-  const canFlip = state.fliped.length < FLIP_MATCHING_COUNT
-  return canFlip && !isComplete(state.clear)
+  const canFlip = state.fliped.length < state.config.flipMatchingCount
+  return canFlip && state.status !== STATUS.COMPLETE
 }
 
 function* youCycle() {
@@ -196,13 +284,10 @@ function* youCycle() {
 function* aiCycle() {
   while (yield* continueTurnCycle()) {
     yield effect.call(delay, 1000)
-    const state = yield effect.get()
-    const candidate = range(0, TABLE_SIZE * FLIP_MATCHING_COUNT).filter(
-      i =>
-        !state.fliped.includes(i) &&
-        !Object.values(state.clear)
-          .flat()
-          .includes(i)
+    const { fliped, clear, config } = yield effect.get()
+    const { tableSize, flipMatchingCount } = config
+    const candidate = range(0, tableSize * flipMatchingCount).filter(
+      i => !fliped.includes(i) && !objValue(clear).includes(i)
     )
     yield effect.put(ACTION.flip, {
       index: candidate[Math.floor(Math.random() * candidate.length)]
