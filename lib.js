@@ -15,9 +15,6 @@ export const app = ($target, initialState, mutation, render) => {
 
   const emit = (action, payload) => {
     const newState = mutation(state, action, payload)
-    for (const mw of middlewares) {
-      mw(newState, action, payload)
-    }
     // 構造データを取得
     const root = render(newState)
     // DOM構築(キャッシュ適用)
@@ -29,10 +26,15 @@ export const app = ($target, initialState, mutation, render) => {
       updateDiffDom($target.childNodes[0], dom)
     }
     state = newState
+    // ミドルウェア
+    for (const mw of middlewares) {
+      mw(action, payload)
+    }
   }
 
+  const getState = () => state
   const run = () => emit(BUILTIN_ACTION.init)
-  const use = mw => middlewares.push(mw)
+  const use = mw => middlewares.push(mw(emit)(getState))
 
   return { emit, use, run }
 }
@@ -331,10 +333,122 @@ const parseArg = arg => {
   }
 }
 
+const EFFECT = {
+  TAKE: 'TAKE',
+  FORK: 'FORK',
+  CALL: 'CALL',
+  PUT: 'PUT'
+}
+
+const take = action => {
+  return {
+    effect: EFFECT.TAKE,
+    args: {
+      action
+    }
+  }
+}
+
+const call = (asyncTask, ...args) => {
+  return {
+    effect: EFFECT.CALL,
+    args: {
+      asyncTask,
+      args
+    }
+  }
+}
+
+const put = (action, payload) => {
+  return {
+    effect: EFFECT.PUT,
+    args: {
+      action,
+      payload
+    }
+  }
+}
+
+const fork = routine => {
+  return {
+    effect: EFFECT.FORK,
+    args: {
+      routine
+    }
+  }
+}
+
+export const effect = {
+  call,
+  put,
+  take,
+  fork
+}
+
+export const recycler = cycleGenerator => emit => getState => {
+  const gen = cycleGenerator(getState)
+  let waitingAction = null
+  cycle(emit, gen, action => {
+    waitingAction = action
+  })
+  return (action, payload) => {
+    if (action === waitingAction) {
+      waitingAction = null
+      cycle(
+        emit,
+        gen,
+        action => {
+          waitingAction = action
+        },
+        payload
+      )
+    }
+  }
+}
+
+const cycle = (emit, gen, cb, arg) => {
+  const { value, done } = gen.next(arg)
+  if (!done) {
+    const { effect, args } = value
+    switch (effect) {
+      case EFFECT.CALL: {
+        args
+          .asyncTask(args.args)
+          .then(v => cycle(emit, gen, cb, v))
+          .catch(e => {
+            throw e
+          })
+        break
+      }
+      case EFFECT.PUT: {
+        const { action, payload } = args
+        emit(action, payload)
+        cycle(emit, gen, cb)
+        break
+      }
+      case EFFECT.TAKE: {
+        const { action } = args
+        cb(action)
+        break
+      }
+      case EFFECT.FORK: {
+        const { routine } = args
+        cycle(emit, routine(), cb)
+        break
+      }
+    }
+  }
+}
+
+export const delay = ms =>
+  new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
+
 /**
  * ログを出力するミドルウェア
  */
-export const logger = (state, action, payload) => {
+export const logger = () => _emit => getState => (action, payload) => {
   console.log(
     `%c${getTimeString()} %c${action}%c %o %o`,
     styleObjectToString({
@@ -346,7 +460,7 @@ export const logger = (state, action, payload) => {
     }),
     styleObjectToString({}),
     payload,
-    state
+    getState()
   )
 }
 

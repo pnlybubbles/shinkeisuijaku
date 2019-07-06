@@ -1,4 +1,12 @@
-import { app, html, logger, classNames } from './lib.js'
+import {
+  app,
+  html,
+  logger,
+  recycler,
+  classNames,
+  delay,
+  effect
+} from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
 const TABLE_SIZE = 6
@@ -8,7 +16,7 @@ const cardPath = index =>
 
 const renderCard = (number, index, isFlip, isClear) => {
   return html`
-    <div class="card" onclick="${() => emit(ACTION.flip, { index })}">
+    <div class="card" onclick="${() => emit(ACTION.clickFlip, { index })}">
       ${isFlip || isClear
         ? html`
             <img class="card__img front" src="${cardPath(number)}" />
@@ -55,44 +63,58 @@ const render = state => {
   `
 }
 
+const PAYLER = {
+  YOU: 'you',
+  AI: 'ai'
+}
+
+const FLIP_MATCHING_COUNT = 3
+
 const initialState = () => {
   const singleTable = new Array(TABLE_SIZE).fill(0).map((_, i) => i + 1)
-  const table = singleTable
-    .concat(singleTable)
-    .concat(singleTable)
+  const table = new Array(FLIP_MATCHING_COUNT)
+    .fill(singleTable)
+    .flat()
     .sort(() => Math.random() - 0.5)
   return {
     table,
     fliped: [],
     clear: [],
-    busy: false,
+    playing: PAYLER.YOU,
     isSkipable: false
   }
 }
 
 const debugInitialState = () => {
   const singleTable = new Array(TABLE_SIZE).fill(0).map((_, i) => i + 1)
-  const table = singleTable.concat(singleTable).sort(() => Math.random() - 0.5)
+  const table = new Array(FLIP_MATCHING_COUNT)
+    .fill(singleTable)
+    .flat()
+    .sort(() => Math.random() - 0.5)
   return {
     table,
     fliped: [],
-    clear: new Array(TABLE_SIZE * 2).fill(0).map((_, i) => i),
-    busy: false,
+    clear: new Array(TABLE_SIZE * FLIP_MATCHING_COUNT).fill(0).map((_, i) => i),
+    playing: PAYLER.YOU,
     isSkipable: false
   }
 }
 
 const ACTION = {
+  clickFlip: 'CLICK_FLIP',
   flip: 'FLIP',
+  unflip: 'UNFLIP',
   reset: 'RESET',
   skip: 'SKIP'
 }
 
 const mutation = (state, action, payload) => {
   switch (action) {
+    case ACTION.unflip:
+      return { ...state, fliped: [] }
     case ACTION.flip:
       const { index } = payload
-      if (state.fliped.length === 3) {
+      if (state.fliped.length === FLIP_MATCHING_COUNT) {
         return { ...state, fliped: [index] }
       } else {
         if (state.fliped.includes(index)) {
@@ -101,16 +123,17 @@ const mutation = (state, action, payload) => {
         const isSkipable =
           state.fliped.length === 1 &&
           state.table[state.fliped[0]] !== state.table[index]
-        const newClear =
-          state.fliped.length === 2 &&
+        const isClear =
+          state.fliped.length === FLIP_MATCHING_COUNT - 1 &&
           state.fliped
             .map(i => state.table[i])
             .every(v => v === state.table[index])
-            ? [...state.clear, ...state.fliped, index]
-            : state.clear
+        const newClear = isClear
+          ? [...state.clear, ...state.fliped, index]
+          : state.clear
         return {
           ...state,
-          fliped: [...state.fliped, index],
+          fliped: isClear ? [] : [...state.fliped, index],
           clear: newClear,
           isSkipable
         }
@@ -122,6 +145,17 @@ const mutation = (state, action, payload) => {
   }
 }
 
+function* flipCycle(getState) {
+  while (true) {
+    const payload = yield effect.take(ACTION.clickFlip)
+    yield effect.put(ACTION.flip, payload)
+    if (getState().fliped.length === FLIP_MATCHING_COUNT) {
+      yield effect.call(delay, 1000)
+      yield effect.put(ACTION.unflip)
+    }
+  }
+}
+
 const { emit, use, run } = app(
   document.querySelector('#app'),
   initialState(),
@@ -129,5 +163,7 @@ const { emit, use, run } = app(
   render
 )
 
-use(logger)
+use(logger())
+use(recycler(flipCycle))
+
 run()
