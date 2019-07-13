@@ -3,9 +3,10 @@ import {
   html,
   logger,
   recycler,
-  classNames,
+  classNames as cn,
   delay,
-  effect
+  effect,
+  isSP
 } from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
@@ -23,7 +24,7 @@ const renderCard = (number, index, isFlip, isClear) => {
         : html`
             <img class="card__img back" src="${BACK_CARD_PATH}" />
           `}
-      <div class="${classNames(['card__clear', { active: isClear }])}"></div>
+      <div class="${cn(['card__clear', { active: isClear }])}"></div>
     </div>
   `
 }
@@ -37,43 +38,61 @@ const renderModal = (label, children) => html`
   </div>
 `
 
-const renderModalButton = (label, className, onClick) => html`
-  <button
-    class="${classNames(['modal__button', className])}"
-    onclick="${onClick}"
-  >
-    ${label}
-  </button>
+const renderSelect = (option, handleSelect, className) => html`
+  <div class="${cn(['select', className])}">
+    ${option.map(
+      item =>
+        html`
+          <button
+            class="${cn(['select__item', 'button', { active: item.selected }])}"
+            onclick="${() => handleSelect(item.value)}"
+          >
+            ${item.label}
+          </button>
+        `
+    )}
+  </div>
 `
+
+const FLIP_OPTION = [{ label: '2マイ', value: 2 }, { label: '3マイ', value: 3 }]
+const TABLE_SIZE_OPTION = [
+  { label: '6コ', value: 2 },
+  { label: '8コ', value: 8 },
+  { label: '10コ', value: 10 }
+]
+
+const selected = value => item => ({
+  ...item,
+  selected: item.value === value
+})
 
 const renderStartModal = config =>
   renderModal(
-    'Start',
+    '神経衰弱',
     html`
       <div class="modal__container">
-        <div class="modal__button-wrap vertical">
-          ${[
-            renderModalButton(
-              '2 Flip',
-              {
-                'modal__button-flip': true,
-                active: config.flipMatchingCount === 2
-              },
-              () => emit(ACTION.configFlip, { count: 2 })
-            ),
-            renderModalButton(
-              '3 Flip',
-              {
-                'modal__button-flip': true,
-                active: config.flipMatchingCount === 3
-              },
-              () => emit(ACTION.configFlip, { count: 3 })
-            )
-          ]}
+        <div class="modal__button-wrap">
+          <button
+            class="${cn(['button', 'modal__button-start'])}"
+            onclick="${() => emit(ACTION.start)}"
+          >
+            スタート
+          </button>
         </div>
-        <div class="modal__button-wrap vertical">
-          ${renderModalButton('Go!', 'modal__button-start', () =>
-            emit(ACTION.start)
+        <div class="modal__button-wrap">
+          <div class="modal__select-title">揃える枚数</div>
+          ${renderSelect(
+            FLIP_OPTION.map(selected(config.flipMatchingCount)),
+            v => emit(ACTION.configFlip, { value: v }),
+            'select__flip-matching-count'
+          )}
+        </div>
+        <div class="modal__button-wrap">
+          <div class="modal__select-title">カードの種類</div>
+          ${renderSelect(
+            TABLE_SIZE_OPTION.map(selected(config.tableSize)),
+            v => emit(ACTION.configTableSize, { value: v }),
+            'select__table-size'
           )}
         </div>
       </div>
@@ -82,12 +101,15 @@ const renderStartModal = config =>
 
 const renderClearModal = () =>
   renderModal(
-    'Clear!',
+    'クリア!',
     html`
       <div>
-        ${renderModalButton('Reset', 'modal__button-reset', () =>
-          emit(ACTION.reset)
-        )}
+        <button
+          class="${cn(['button', 'modal__button-reset'])}"
+          onclick="${() => emit(ACTION.reset)}"
+        >
+          最初から
+        </button>
       </div>
     `
   )
@@ -110,17 +132,17 @@ const render = ({ clear, fliped, table, isSkipable, status, config }) => {
   const isClear = i => objValue(clear).includes(i)
   const modal = renderStatusModal(status, config)
   return html`
-    <main class="root">
+    <main class="root" ontouchstart="">
       ${modal}
-      <div class="${classNames(['root__game', { blur: modal !== '' }])}">
+      <div class="${cn(['root__game', { blur: modal !== '' }])}">
         <div class="root__table">
           ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
         </div>
         <button
-          class="${classNames(['root__skip-button', { active: isSkipable }])}"
+          class="${cn(['root__skip-button', 'button', { active: isSkipable }])}"
           onclick=${() => emit(ACTION.skip)}
         >
-          Skip
+          スキップ
         </button>
       </div>
     </main>
@@ -180,7 +202,8 @@ const ACTION = {
   start: 'START',
   skip: 'SKIP',
   changePlayer: 'CHANGE_PLAYER',
-  configFlip: 'CONFIG_FLIP'
+  configFlip: 'CONFIG_FLIP',
+  configTableSize: 'CONFIG_TABLE_SIZE'
 }
 
 const isComplete = (clear, table) =>
@@ -227,12 +250,20 @@ const mutation = (state, action, payload) => {
       }
     case ACTION.changePlayer:
       return { ...state, playing: payload.player }
-    case ACTION.configFlip:
-      const newConfig = { ...state.config, flipMatchingCount: payload.count }
+    case ACTION.configFlip: {
+      const newConfig = { ...state.config, flipMatchingCount: payload.value }
       return {
         config: newConfig,
         ...initialGameState(newConfig)
       }
+    }
+    case ACTION.configTableSize: {
+      const newConfig = { ...state.config, tableSize: payload.value }
+      return {
+        config: newConfig,
+        ...initialGameState(newConfig)
+      }
+    }
     case ACTION.start:
       return { ...state, status: STATUS.PLAYING }
     case ACTION.reset:

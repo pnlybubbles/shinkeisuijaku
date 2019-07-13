@@ -1,11 +1,27 @@
 :root {
-  --card-width: 100px;
+  --card-width: 25%;
+}
+
+body {
+  margin: 0;
+}
+
+.button {
+  background-color: transparent;
+  font-family: inherit;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  text-align: center;
+  text-decoration: none;
 }
 
 .root {
-  position: relative;
-  font-family: 'Avenir', sans-serif;
-  border: 2px solid #d33;
+  font-family: vdl-logojrblack, sans-serif;
+  font-weight: 900;
+  font-style: normal;
 }
 
 .root__game {
@@ -23,32 +39,25 @@
 }
 
 .root__skip-button {
-  background-color: transparent;
-  border-color: #d33;
-  border-width: 1px;
-  border-style: solid;
-  padding: 8px 16px 8px;
-  color: #d33;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-  text-decoration: none;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  user-select: none;
-  transition: all 0.3s;
   display: none;
-}
-
-.root__skip-button:hover {
-  background-color: #d33;
-  color: #fff;
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  width: 62px;
+  height: 62px;
+  border: 5px solid #d33;
+  font-size: 18px;
+  border-radius: 100%;
+  line-height: 18px;
+  color: #d33;
+  padding: 0;
+  background-color: #fff;
+  text-align: center;
 }
 
 .root__skip-button:active {
-  opacity: 0.8;
-  transition: none;
+  background-color: #d33;
+  color: #fff;
 }
 
 .root__skip-button.active {
@@ -57,11 +66,16 @@
 
 .card {
   position: relative;
+  width: var(--card-width);
+}
+
+.card:active {
+  opacity: 0.8;
 }
 
 .card__img {
   display: block;
-  width: var(--card-width);
+  width: 100%;
 }
 
 .card__clear {
@@ -80,12 +94,14 @@
 }
 
 .modal {
-  position: absolute;
+  position: fixed;
   z-index: 1;
   top: 0;
   left: 0;
-  bottom: 0;
-  right: 0;
+  width: 100vw;
+  height: 100vh;
+  border: #d33 solid 8px;
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -93,13 +109,11 @@
 }
 
 .modal__window {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  text-align: center;
 }
 
 .modal__container {
-  display: flex;
+  width: 70vw;
 }
 
 .modal__label {
@@ -108,41 +122,62 @@
   margin-bottom: 8px;
 }
 
-.modal__button {
-  background-color: transparent;
-  border-color: #d33;
-  border-width: 1px;
-  border-style: solid;
-  padding: 8px 16px 8px;
-  color: #d33;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-  text-decoration: none;
-  display: block;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  user-select: none;
-  transition: all 0.3s;
-  margin-bottom: 8px;
-}
-
-.modal__button:hover {
-  background-color: #d33;
-  color: #fff;
-}
-
-.modal__button:active {
-  opacity: 0.8;
-  transition: none;
-}
-
-.modal__button.active {
-  background-color: #d33;
-  color: #fff;
-}
-
 .modal__button-wrap {
-  margin: 0 8px;
+  margin-bottom: 16px;
+}
+
+.modal__button-start {
+  border: 5px solid #d33;
+  color: #d33;
+  font-size: 18px;
+  padding: 8px;
+  background-color: #fff;
+}
+
+.modal__button-start:active {
+  background-color: #d33;
+  color: #fff;
+}
+
+.modal__select-title {
+  color: #d33;
+  font-size: 18px;
+}
+
+.modal__button-reset {
+  border: 5px solid #d33;
+  color: #d33;
+  font-size: 18px;
+  padding: 8px;
+}
+
+.modal__button-reset:active {
+  background-color: #d33;
+  color: #fff;
+}
+
+.select {
+  display: flex;
+}
+
+.select__item:not(:first-child) {
+  border-left: 0;
+}
+
+.select__item {
+  flex-grow: 1;
+  border: 5px solid #d33;
+  color: #d33;
+  font-size: 18px;
+  padding: 8px;
+}
+
+.select__item:active {
+  background-color: #c11;
+  color: #fff;
+}
+
+.select__item.active {
+  background-color: #d33;
+  color: #fff;
 }
