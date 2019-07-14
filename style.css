@@ -19,7 +19,7 @@ body {
 }
 
 .root {
-  font-family: vdl-logojrblack, sans-serif;
+  font-family: vdl-megamaru, sans-serif;
   font-weight: 900;
   font-style: normal;
 }
@@ -45,10 +45,10 @@ body {
   bottom: 10px;
   width: 62px;
   height: 62px;
-  border: 5px solid #d33;
-  font-size: 18px;
+  border: 2px solid #d33;
+  font-size: 14px;
   border-radius: 100%;
-  line-height: 18px;
+  line-height: 14px;
   color: #d33;
   padding: 0;
   background-color: #fff;
@@ -100,7 +100,7 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  border: #d33 solid 8px;
+  border: #d33 solid 4px;
   box-sizing: border-box;
   display: flex;
   justify-content: center;
@@ -127,10 +127,10 @@ body {
 }
 
 .modal__button-start {
-  border: 5px solid #d33;
+  border: 2px solid #d33;
   color: #d33;
-  font-size: 18px;
-  padding: 8px;
+  font-size: 14px;
+  padding: 6px;
   background-color: #fff;
 }
 
@@ -141,13 +141,13 @@ body {
 
 .modal__select-title {
   color: #d33;
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .modal__button-reset {
-  border: 5px solid #d33;
+  border: 2px solid #d33;
   color: #d33;
-  font-size: 18px;
+  font-size: 14px;
   padding: 8px;
 }
 
@@ -166,10 +166,10 @@ body {
 
 .select__item {
   flex-grow: 1;
-  border: 5px solid #d33;
+  border: 2px solid #d33;
   color: #d33;
-  font-size: 18px;
-  padding: 8px;
+  font-size: 14px;
+  padding: 4px;
 }
 
 .select__item:active {

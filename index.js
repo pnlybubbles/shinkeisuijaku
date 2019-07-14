@@ -6,7 +6,7 @@ import {
   classNames as cn,
   delay,
   effect,
-  isSP
+  unreachable
 } from './lib.js'
 
 const BACK_CARD_PATH = './images/card_back.png'
@@ -56,9 +56,9 @@ const renderSelect = (option, handleSelect, className) => html`
 
 const FLIP_OPTION = [{ label: '2マイ', value: 2 }, { label: '3マイ', value: 3 }]
 const TABLE_SIZE_OPTION = [
-  { label: '6コ', value: 2 },
-  { label: '8コ', value: 8 },
-  { label: '10コ', value: 10 }
+  { label: '6シュ', value: 2 },
+  { label: '8シュ', value: 8 },
+  { label: '10シュ', value: 10 }
 ]
 
 const selected = value => item => ({
@@ -127,7 +127,15 @@ const renderStatusModal = (status, config) => {
 
 const objValue = obj => Object.values(obj).flat()
 
-const render = ({ clear, fliped, table, isSkipable, status, config }) => {
+const render = ({
+  clear,
+  fliped,
+  table,
+  isSkipable,
+  status,
+  config,
+  playing
+}) => {
   const isFlip = i => fliped.includes(i)
   const isClear = i => objValue(clear).includes(i)
   const modal = renderStatusModal(status, config)
@@ -139,8 +147,12 @@ const render = ({ clear, fliped, table, isSkipable, status, config }) => {
           ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
         </div>
         <button
-          class="${cn(['root__skip-button', 'button', { active: isSkipable }])}"
-          onclick=${() => emit(ACTION.skip)}
+          class="${cn([
+            'root__skip-button',
+            'button',
+            { active: isSkipable && playing == PLAYER.YOU }
+          ])}"
+          onclick=${() => emit(ACTION.skip, {})}
         >
           スキップ
         </button>
@@ -288,27 +300,43 @@ function* gameCycle() {
         yield effect.put(ACTION.changePlayer, { player: playing })
         // プレイヤーがめくる
         yield* playerCycleMapping[playing]()
+        // ぜんぶめくられてたらおわり
+        if (yield* isCompleteCycle()) break
         // めくられたのを裏っ返す
         yield* unflipCycle()
       }
-      const { status } = yield effect.get()
-      if (status === STATUS.COMPLETE) break
+      if (yield* isCompleteCycle()) break
     }
     // リセットされるまで待つ
     yield effect.take(ACTION.reset)
   }
 }
 
+function* isCompleteCycle() {
+  const { status } = yield effect.get()
+  return status === STATUS.COMPLETE
+}
+
 function* continueTurnCycle() {
   const state = yield effect.get()
   const canFlip = state.fliped.length < state.config.flipMatchingCount
-  return canFlip && state.status !== STATUS.COMPLETE
+  return canFlip && !(yield* isCompleteCycle())
 }
 
 function* youCycle() {
   while (yield* continueTurnCycle()) {
-    const payload = yield effect.take(ACTION.clickFlip)
-    yield effect.put(ACTION.flip, payload)
+    // カードをタップするかリセットを押されるまで待つ
+    const { flip, skip } = yield effect.race({
+      flip: effect.take(ACTION.clickFlip),
+      skip: effect.take(ACTION.skip)
+    })
+    if (flip) {
+      yield effect.put(ACTION.flip, flip)
+    } else if (skip) {
+      break
+    } else {
+      unreachable()
+    }
   }
 }
 
@@ -327,7 +355,10 @@ function* aiCycle() {
 }
 
 function* unflipCycle() {
-  yield effect.call(delay, 1000)
+  yield effect.race({
+    click: effect.take(ACTION.clickFlip),
+    timeout: effect.call(delay, 5000)
+  })
   yield effect.put(ACTION.unflip)
 }
 

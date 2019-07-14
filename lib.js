@@ -335,7 +335,7 @@ const parseArg = arg => {
 
 const EFFECT = {
   TAKE: 'TAKE',
-  FORK: 'FORK',
+  RACE: 'RACE',
   CALL: 'CALL',
   PUT: 'PUT',
   GET: 'GET'
@@ -343,7 +343,7 @@ const EFFECT = {
 
 /**
  * アクションが呼ばれるまで待機する。ペイロードを返す。
- * @param {*} action
+ * @param {ACTION} action
  */
 const take = action => {
   return {
@@ -371,7 +371,7 @@ const call = (asyncTask, ...args) => {
 
 /**
  * アクションを実行する。
- * @param {*} action ディスパッチするアクション
+ * @param {ACTION} action ディスパッチするアクション
  * @param {*} payload ディスパッチするペイロード
  */
 const put = (action, payload) => {
@@ -384,6 +384,9 @@ const put = (action, payload) => {
   }
 }
 
+/**
+ * 現在のステートを取得する
+ */
 const get = () => {
   return {
     effect: EFFECT.GET,
@@ -392,14 +395,14 @@ const get = () => {
 }
 
 /**
- * コルーチンを起動する
- * @param {GeneratorFunction} routine コルーチン
+ * 複数のエフェクトのうち最初に終わったものだけ返す
+ * @param {{[key: string]: Effect}} effects 複数のエフェクト
  */
-const fork = routine => {
+const race = effects => {
   return {
-    effect: EFFECT.FORK,
+    effect: EFFECT.RACE,
     args: {
-      routine
+      effects
     }
   }
 }
@@ -408,35 +411,57 @@ export const effect = {
   call,
   put,
   take,
-  fork,
+  race,
   get
 }
 
 export const recycler = cycleGenerator => emit => getState => {
   const gen = cycleGenerator()
-  let waitingAction = null
-  const cycle = cycleBase(emit, gen, getState, action => {
-    waitingAction = action
-  })
-  cycle()
+  const cycle = new Cycle(gen, emit, getState)
+  cycle.run()
   return (action, payload) => {
-    if (action === waitingAction) {
-      waitingAction = null
-      cycle(payload)
-    }
+    cycle.dispatch(action, payload)
   }
 }
 
-const cycleBase = (emit, gen, getState, cb) => {
-  const cycle = arg => {
-    const { value, done } = gen.next(arg)
+class Cycle {
+  constructor(gen, emit, getState) {
+    this.gen = gen
+    this.emit = emit
+    this.getState = getState
+    this.waitingAction = null
+    this.finished = () => {}
+    this.isCancel = false
+    this.cocycles = []
+  }
+
+  dispatch(action, payload) {
+    if (action === this.waitingAction) {
+      this.run(payload)
+    }
+    for (const cocycle of this.cocycles) {
+      cocycle.dispatch(action, payload)
+    }
+  }
+
+  cancel() {
+    this.isCancel = true
+  }
+
+  finish(cb) {
+    this.finished = cb
+  }
+
+  run(arg) {
+    if (this.isCancel) return
+    const { value, done } = this.gen.next(arg)
     if (!done) {
       const { effect, args } = value
       switch (effect) {
         case EFFECT.CALL: {
           args
             .asyncTask(args.args)
-            .then(v => cycle(v))
+            .then(v => this.run(v))
             .catch(e => {
               throw e
             })
@@ -444,28 +469,57 @@ const cycleBase = (emit, gen, getState, cb) => {
         }
         case EFFECT.PUT: {
           const { action, payload } = args
-          emit(action, payload)
-          cycle()
+          this.emit(action, payload)
+          this.run()
           break
         }
         case EFFECT.TAKE: {
           const { action } = args
-          cb(action)
+          this.waitingAction = action
           break
         }
-        case EFFECT.FORK: {
-          const { routine } = args
-          cycleBase(emit, routine(), getState, cb)
+        case EFFECT.RACE: {
+          const { effects } = args
+          const keys = Object.keys(effects)
+          const cocycles = keys.map(
+            k =>
+              new Cycle(
+                (function*() {
+                  return yield effects[k]
+                })(),
+                this.emit,
+                this.getState
+              )
+          )
+          this.cocycles = [...this.cocycles, ...cocycles]
+          cocycles.forEach((cocycle, i) => {
+            cocycle.finish(value => {
+              for (const cocycle of cocycles) {
+                cocycle.cancel()
+                const index = this.cocycles.findIndex(v => v === cocycle)
+                this.cocycles.splice(index, 1)
+              }
+              this.run({
+                [keys[i]]: value
+              })
+            })
+          })
+          for (const cocycle of cocycles) {
+            cocycle.run()
+          }
           break
         }
         case EFFECT.GET: {
-          cycle(getState())
+          this.run(this.getState())
           break
         }
+        default:
+          unreachable(effect)
       }
+    } else {
+      this.finished(value)
     }
   }
-  return cycle
 }
 
 export const delay = ms =>
@@ -562,3 +616,7 @@ export const isIOS = /iP(hone|(o|a)d)/.test(navigator.userAgent)
 export const isSP = /(iP(hone|(o|a)d))|Android/.test(navigator.userAgent)
 
 export const DEBUG = location.hostname === 'localhost'
+
+export const unreachable = v => {
+  throw new Error('Unreachable! ${v}')
+}
