@@ -5,6 +5,11 @@ export const PLAYER = {
   AI: 'AI'
 }
 
+export const PLAYER_TEXT = {
+  [PLAYER.YOU]: 'あなた',
+  [PLAYER.AI]: 'AI'
+}
+
 export const FLIP_OPTION = [
   { label: '2マイ', value: 2 },
   { label: '3マイ', value: 3 }

@@ -15,7 +15,8 @@ import {
   BACK_CARD_PATH,
   FLIP_OPTION,
   TABLE_SIZE_OPTION,
-  START_PLAYER_OPTION
+  START_PLAYER_OPTION,
+  PLAYER_TEXT
 } from './constant.js'
 
 const cardPath = index =>
@@ -107,11 +108,35 @@ const renderStartModal = config =>
     `
   )
 
-const renderClearModal = () =>
-  renderModal(
-    'クリア!',
+const clearText = playersSortedByCount => {
+  if (
+    playersSortedByCount.every(v => v.count === playersSortedByCount[0].count)
+  ) {
+    return 'ひきわけ!'
+  } else {
+    return `${PLAYER_TEXT[playersSortedByCount[0].player]}の勝ち!`
+  }
+}
+
+const renderClearModal = clear => {
+  const players = Object.keys(clear)
+  const playersSortedByCount = players
+    .map(p => ({ count: clear[p].length, player: p }))
+    .sort((a, b) => b.count - a.count)
+  return renderModal(
+    clearText(playersSortedByCount),
     html`
       <div>
+        <div class="result">
+          ${playersSortedByCount.map(
+            v => html`
+              <div class="result__item">
+                <div class="result__player">${PLAYER_TEXT[v.player]}</div>
+                <div class="result__count">${v.count}</div>
+              </div>
+            `
+          )}
+        </div>
         <button
           class="${cn(['button', 'modal__button-reset'])}"
           onclick="${() => emit(ACTION.reset)}"
@@ -121,13 +146,14 @@ const renderClearModal = () =>
       </div>
     `
   )
+}
 
-const renderStatusModal = (status, config) => {
+const renderStatusModal = (status, config, clear) => {
   switch (status) {
     case STATUS.START:
       return renderStartModal(config)
     case STATUS.COMPLETE:
-      return renderClearModal()
+      return renderClearModal(clear)
     default:
       return ''
   }
@@ -146,7 +172,7 @@ const render = ({
 }) => {
   const isFlip = i => fliped.includes(i)
   const isClear = i => objValue(clear).includes(i)
-  const modal = renderStatusModal(status, config)
+  const modal = renderStatusModal(status, config, clear)
   const headerText =
     fliped.length === config.flipMatchingCount
       ? 'カードをタップして裏に戻す'

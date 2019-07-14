@@ -194,3 +194,23 @@ body {
   background-color: #d33;
   color: #fff;
 }
+
+.result {
+  margin-bottom: 16px;
+}
+
+.result__item {
+  display: flex;
+  color: #d33;
+}
+
+.result__player {
+  flex-basis: 50%;
+  text-align: right;
+  margin-right: 5px;
+}
+
+.result__count {
+  flex-basis: 50%;
+  text-align: left;
+}
