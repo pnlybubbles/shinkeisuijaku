@@ -8,8 +8,15 @@ import {
   effect,
   unreachable
 } from './lib.js'
-
-const BACK_CARD_PATH = './images/card_back.png'
+import {
+  ACTION,
+  PLAYER,
+  STATUS,
+  BACK_CARD_PATH,
+  FLIP_OPTION,
+  TABLE_SIZE_OPTION,
+  START_PLAYER_OPTION
+} from './constant.js'
 
 const cardPath = index =>
   `./images/card_spade_${index.toString().padStart(2, '0')}.png`
@@ -54,13 +61,6 @@ const renderSelect = (option, handleSelect, className) => html`
   </div>
 `
 
-const FLIP_OPTION = [{ label: '2マイ', value: 2 }, { label: '3マイ', value: 3 }]
-const TABLE_SIZE_OPTION = [
-  { label: '6シュ', value: 2 },
-  { label: '8シュ', value: 8 },
-  { label: '10シュ', value: 10 }
-]
-
 const selected = value => item => ({
   ...item,
   selected: item.value === value
@@ -78,6 +78,14 @@ const renderStartModal = config =>
           >
             スタート
           </button>
+        </div>
+        <div class="modal__button-wrap">
+          <div class="modal__select-title">どっちから？</div>
+          ${renderSelect(
+            START_PLAYER_OPTION.map(selected(config.playingTurn[0])),
+            v => emit(ACTION.configPlayingTurn, { value: v }),
+            'select__table-size'
+          )}
         </div>
         <div class="modal__button-wrap">
           <div class="modal__select-title">揃える枚数</div>
@@ -139,10 +147,19 @@ const render = ({
   const isFlip = i => fliped.includes(i)
   const isClear = i => objValue(clear).includes(i)
   const modal = renderStatusModal(status, config)
+  const headerText =
+    fliped.length === config.flipMatchingCount
+      ? 'カードをタップして裏に戻す'
+      : playing === PLAYER.YOU
+      ? `あなたの番です! あと${config.flipMatchingCount - fliped.length}マイ`
+      : playing === PLAYER.AI
+      ? 'AIがプレイ中...'
+      : unreachable(playing)
   return html`
     <main class="root" ontouchstart="">
       ${modal}
       <div class="${cn(['root__game', { blur: modal !== '' }])}">
+        <div class="root__header">${headerText}</div>
         <div class="root__table">
           ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
         </div>
@@ -161,24 +178,14 @@ const render = ({
   `
 }
 
-const PLAYER = {
-  YOU: 'YOU',
-  AI: 'AI'
-}
-
-const STATUS = {
-  START: 'START',
-  PLAYING: 'PLAYING',
-  COMPLETE: 'COMPLETE'
-}
-
 const range = (offset, size) =>
   new Array(size).fill(0).map((_, i) => offset + i)
 
 const initialState = () => {
   const initialConfig = {
     tableSize: 6,
-    flipMatchingCount: 2
+    flipMatchingCount: 2,
+    playingTurn: [PLAYER.YOU, PLAYER.AI]
   }
   return {
     config: initialConfig,
@@ -200,22 +207,9 @@ const initialGameState = config => {
       [PLAYER.AI]: []
     },
     playing: PLAYER.YOU,
-    playingTurn: [PLAYER.YOU, PLAYER.AI],
     status: STATUS.START,
     isSkipable: false
   }
-}
-
-const ACTION = {
-  clickFlip: 'CLICK_FLIP',
-  flip: 'FLIP',
-  unflip: 'UNFLIP',
-  reset: 'RESET',
-  start: 'START',
-  skip: 'SKIP',
-  changePlayer: 'CHANGE_PLAYER',
-  configFlip: 'CONFIG_FLIP',
-  configTableSize: 'CONFIG_TABLE_SIZE'
 }
 
 const isComplete = (clear, table) =>
@@ -276,6 +270,18 @@ const mutation = (state, action, payload) => {
         ...initialGameState(newConfig)
       }
     }
+    case ACTION.configPlayingTurn: {
+      const startPlayer = payload.value
+      const playingTurn = [
+        startPlayer,
+        ...Object.values(PLAYER).filter(v => v !== startPlayer)
+      ]
+      const newConfig = { ...state.config, playingTurn }
+      return {
+        config: newConfig,
+        ...initialGameState(newConfig)
+      }
+    }
     case ACTION.start:
       return { ...state, status: STATUS.PLAYING }
     case ACTION.reset:
@@ -294,16 +300,16 @@ function* gameCycle() {
   while (true) {
     yield effect.take(ACTION.start)
     while (true) {
-      const { playingTurn } = yield effect.get()
-      for (const playing of playingTurn) {
+      const { config } = yield effect.get()
+      for (const playing of config.playingTurn) {
         // プレイヤーの変更
         yield effect.put(ACTION.changePlayer, { player: playing })
         // プレイヤーがめくる
-        yield* playerCycleMapping[playing]()
+        const isSkip = yield* playerCycleMapping[playing]()
         // ぜんぶめくられてたらおわり
         if (yield* isCompleteCycle()) break
         // めくられたのを裏っ返す
-        yield* unflipCycle()
+        yield* unflipCycle(isSkip)
       }
       if (yield* isCompleteCycle()) break
     }
@@ -333,11 +339,12 @@ function* youCycle() {
     if (flip) {
       yield effect.put(ACTION.flip, flip)
     } else if (skip) {
-      break
+      return true
     } else {
       unreachable()
     }
   }
+  return false
 }
 
 function* aiCycle() {
@@ -354,11 +361,13 @@ function* aiCycle() {
   }
 }
 
-function* unflipCycle() {
-  yield effect.race({
-    click: effect.take(ACTION.clickFlip),
-    timeout: effect.call(delay, 5000)
-  })
+function* unflipCycle(noWait) {
+  if (!noWait) {
+    yield effect.race({
+      click: effect.take(ACTION.clickFlip),
+      timeout: effect.call(delay, 5000)
+    })
+  }
   yield effect.put(ACTION.unflip)
 }
 
