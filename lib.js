@@ -151,6 +151,47 @@ const getDomByVnode = (vnode, slots) => {
     const dom = new DOMParser()
       .parseFromString(text, 'text/html')
       .querySelector('body').childNodes[0]
+    traverseNode(dom, node => {
+      if (node.nodeValue !== null) {
+        const text = node.nodeValue.trim()
+        if (text.length > ANCHOR_LENGTH) {
+          // テキストノード内でアンカー文字列が結合している場合
+          // 正規表現で`!%........%`の抽出を行う
+          // テキストノードに分割
+          const anchors = matchAnchor(text)
+          if (anchors !== null) {
+            let lastIndex = 0
+            for (const anchor of anchors) {
+              // !%...%アンカーに挟まれたテキスト!%...%
+              //       ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+              //       この部分を取ってくる
+              const index = text.indexOf(anchor)
+              const data = text.slice(lastIndex, index)
+              if (data.length > 0) {
+                // アンカーに挟まれたテキスト部分だけをテキストノード化
+                node.parentNode.insertBefore(
+                  document.createTextNode(data),
+                  node
+                )
+              }
+              // アンカーを単体でテキストノード化
+              node.parentNode.insertBefore(
+                document.createTextNode(anchor),
+                node
+              )
+              lastIndex = index + ANCHOR_LENGTH
+            }
+            // 最後のアンカーの尻から最後までの文字列をテキストノード化
+            const data = text.slice(lastIndex)
+            if (data.length > 0) {
+              node.parentNode.insertBefore(document.createTextNode(data), node)
+            }
+            // 基準にしてた初期のノードを削除
+            node.remove()
+          }
+        }
+      }
+    })
     // キャッシュにDOMを対応するアンカーIDを保存
     saveCache(vnode, dom)
     return {
@@ -255,27 +296,15 @@ export const html = (templateOrg, ...args) => {
   const anchors = []
   const template = [...templateOrg]
   for (let i = args.length - 1; i >= 0; i--) {
-    const arg = args[i]
+    let arg = Array.isArray(args[i]) && args[i].length === 0 ? null : args[i]
     if (Array.isArray(arg)) {
       // 配列が1つのスロットに入っている場合は、配列をフラットに展開して複数のスロットにする
-      // スロットが連続するとアンカーを埋め込んだときにテキストがつながってしまう
-      // テキストノードを分割するために間にコメントノードを挟む
-      // `ID1<!---->ID2<!---->ID3<!---->ID4`
-      // のようなHTMLになるように配列を展開してフラットにする
-      if (arg.length === 0) {
-        const anchor = getAnchor()
-        Object.assign(slots, { [anchor]: parseArg('') })
-        anchors.unshift(anchor)
-      } else if (arg.length >= 1) {
-        const slotArr = arg.map(a => parseArg(a))
-        const anchorArr = slotArr.map(() => getAnchor())
-        Object.assign(slots, Object.fromEntries(zip(anchorArr, slotArr)))
-        anchors.unshift(...anchorArr)
-        if (arg.length >= 2) {
-          const textNodeSeparator = new Array(arg.length - 1).fill('<!---->')
-          template.splice(i + 1, 0, ...textNodeSeparator)
-        }
-      }
+      const slotArr = arg.map(a => parseArg(a))
+      const anchorArr = slotArr.map(() => getAnchor())
+      Object.assign(slots, Object.fromEntries(zip(anchorArr, slotArr)))
+      anchors.unshift(...anchorArr)
+      const textNodeSeparator = new Array(arg.length - 1).fill('')
+      template.splice(i + 1, 0, ...textNodeSeparator)
     } else {
       // アンカーIDを生成
       // アンカーIDに対応したスロットをハッシュテーブルに追加
@@ -294,8 +323,19 @@ export const html = (templateOrg, ...args) => {
   }
 }
 
+/**
+ * 8文字のランダム文字列を生成
+ */
+const randomString = () =>
+  Math.random()
+    .toString(36)
+    .slice(-8)
+
 // () => ID: string
-const getAnchor = () => `_${randomString()}`
+const getAnchor = () => `!%${randomString()}%`
+const ANCHOR_LENGTH = getAnchor().length
+
+const matchAnchor = text => text.match(/!%[^%\s]{8}%/g)
 
 // (arg: any) => SlotValue
 // SlotValue:
@@ -303,6 +343,9 @@ const getAnchor = () => `_${randomString()}`
 //   { type: NODE, value: TREE }
 //   { type: FUNCTION, value: Function }
 const parseArg = arg => {
+  if (arg === null) {
+    return { type: SLOT_TYPE.VALUE, value: '' }
+  }
   switch (typeof arg) {
     case 'string':
     case 'number':
@@ -571,11 +614,6 @@ export const styleObjectToString = style =>
   Object.keys(style)
     .map(key => `${key}: ${style[key]};`)
     .join('\n')
-
-const randomString = () =>
-  Math.random()
-    .toString(36)
-    .slice(-8)
 
 export const classNames = arrayClassNames =>
   arrayClassNames

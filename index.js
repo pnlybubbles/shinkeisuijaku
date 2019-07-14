@@ -132,7 +132,7 @@ const renderClearModal = clear => {
             v => html`
               <div class="result__item">
                 <div class="result__player">${PLAYER_TEXT[v.player]}</div>
-                <div class="result__count">${v.count}</div>
+                <div class="result__count">${v.count}マイ</div>
               </div>
             `
           )}
