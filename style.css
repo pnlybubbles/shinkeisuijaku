@@ -63,6 +63,7 @@ body {
 .root__header {
   z-index: 1;
   position: sticky;
+  position: -webkit-sticky;
   top: 0;
   padding: 20px 12px 8px;
   background-color: var(--color-bg);
