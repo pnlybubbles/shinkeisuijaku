@@ -269,6 +269,9 @@ const mutation = (state, action, payload) => {
       if (fliped.includes(index)) {
         return state
       }
+      if (objValue(clear).includes(index)) {
+        return state
+      }
       const newFliped = [...fliped, index]
       const isSkipable =
         fliped.length >= 1 &&
