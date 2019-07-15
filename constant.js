@@ -22,7 +22,8 @@ export const FLIP_OPTION = [
 export const TABLE_SIZE_OPTION = [
   { label: '6シュ', value: 6 },
   { label: '8シュ', value: 8 },
-  { label: '10シュ', value: 10 }
+  { label: '10シュ', value: 10 },
+  { label: '12シュ', value: 12 }
 ]
 export const START_PLAYER_OPTION = [
   { label: '先行', value: PLAYER.YOU },

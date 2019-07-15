@@ -286,6 +286,10 @@ body {
   border-color: var(--color-primary);
 }
 
+.select__table-size.spacing {
+  margin-bottom: 6px;
+}
+
 .clear-modal::before {
   content: '';
   display: block;

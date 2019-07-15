@@ -113,7 +113,16 @@ const renderStartModal = state =>
           <div class="start-modal__select-wrap">
             <div class="start-modal__select-title">カードの種類</div>
             ${renderSelect(
-              TABLE_SIZE_OPTION.map(selected(state.config.tableSize)),
+              TABLE_SIZE_OPTION.slice(0, 2).map(
+                selected(state.config.tableSize)
+              ),
+              v => emit(ACTION.configTableSize, { value: v }),
+              'select__table-size spacing'
+            )}
+            ${renderSelect(
+              TABLE_SIZE_OPTION.slice(2, 4).map(
+                selected(state.config.tableSize)
+              ),
               v => emit(ACTION.configTableSize, { value: v }),
               'select__table-size'
             )}
