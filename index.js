@@ -182,7 +182,7 @@ const renderClearModal = state => {
             最初から
           </button>
           <div class="${cn(['clear-modal__center', { active: isWin }])}">
-            <img class="clear-modal__icon" src="./assets/crown-solid.svg" />
+            <img class="clear-modal__icon" src="./assets/crown_solid.svg" />
           </div>
         </div>
       `
