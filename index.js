@@ -147,6 +147,7 @@ const renderClearModal = state => {
   const playersSortedByCount = players
     .map(p => ({ count: clear[p].length, player: p }))
     .sort((a, b) => b.count - a.count)
+  const isWin = playersSortedByCount[0].player === PLAYER.YOU
   return clearModalAnim.mount(
     state,
     renderModal(
@@ -175,6 +176,9 @@ const renderClearModal = state => {
           >
             最初から
           </button>
+          <div class="${cn(['clear-modal__center', { active: isWin }])}">
+            <img class="clear-modal__icon" src="./assets/crown-solid.svg" />
+          </div>
         </div>
       `
     )

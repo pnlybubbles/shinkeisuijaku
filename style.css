@@ -204,7 +204,6 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--color-bg);
 }
 
 .modal__window {
@@ -215,6 +214,10 @@ body {
   font-size: 36px;
   color: var(--color-primary);
   margin-bottom: 8px;
+}
+
+.start-modal {
+  background-color: var(--color-bg);
 }
 
 .start-modal.reveal-active,
@@ -282,6 +285,18 @@ body {
   border-color: var(--color-primary);
 }
 
+.clear-modal::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -2;
+  background-color: var(--color-bg);
+}
+
 .clear-modal.reveal-active {
   transform: scale(1);
   opacity: 1;
@@ -346,4 +361,56 @@ body {
 
 .clear-modal__mai {
   margin-bottom: 6px;
+}
+
+.clear-modal__center {
+  display: none;
+  position: absolute;
+  z-index: -1;
+  width: 70vw;
+  height: 70vw;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.clear-modal__center.active {
+  display: block;
+}
+
+.clear-modal.reveal-active .clear-modal__center {
+  transition-property: opacity, transform;
+  transition-duration: 0.35s;
+  transition-timing-function: cubic-bezier(0.39, 1.66, 0.3, 1.17);
+  transition-delay: 0.12s;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.clear-modal.reveal-start .clear-modal__center {
+  transform: translate(-50%, -50%) scale(0.7);
+  opacity: 0;
+}
+
+.clear-modal__icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation-name: rotate;
+  animation-duration: 30s;
+  animation-iteration-count: infinite;
+  animation-direction: normal;
+  animation-fill-mode: none;
+  animation-play-state: running;
+  animation-timing-function: linear;
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
