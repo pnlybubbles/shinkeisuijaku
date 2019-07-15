@@ -7,7 +7,8 @@ import {
   delay,
   effect,
   unreachable,
-  zip
+  zip,
+  anim
 } from './lib.js'
 import {
   ACTION,
@@ -47,8 +48,8 @@ const renderCard = (number, suit, index, isFlip, isClear) => {
   `
 }
 
-const renderModal = (label, children) => html`
-  <div class="modal">
+const renderModal = ({ label, class: className }, children) => html`
+  <div class="${cn(['modal', className])}">
     <div class="modal__window">
       <div class="modal__label">${label}</div>
       ${children}
@@ -77,44 +78,58 @@ const selected = value => item => ({
   selected: item.value === value
 })
 
-const renderStartModal = config =>
-  renderModal(
-    '神経衰弱',
-    html`
-      <div class="modal__container">
-        <button
-          class="${cn(['button', 'modal__button-start'])}"
-          onclick="${() => emit(ACTION.start)}"
-        >
-          スタート
-        </button>
-        <div class="modal__select-wrap">
-          <div class="modal__select-title">どっちから？</div>
-          ${renderSelect(
-            START_PLAYER_OPTION.map(selected(config.playingTurn[0])),
-            v => emit(ACTION.configPlayingTurn, { value: v }),
-            'select__table-size'
-          )}
+const renderStartModal = state =>
+  startModalAnim.mount(
+    state,
+    renderModal(
+      {
+        label: '神経衰弱',
+        class: cn(['start-modal', startModalAnim.class(state)])
+      },
+      html`
+        <div class="start-modal__container">
+          <button
+            class="${cn(['button', 'start-modal__button-start'])}"
+            onclick="${() => emit(ACTION.start)}"
+          >
+            スタート
+          </button>
+          <div class="start-modal__select-wrap">
+            <div class="start-modal__select-title">どっちから？</div>
+            ${renderSelect(
+              START_PLAYER_OPTION.map(selected(state.config.playingTurn[0])),
+              v => emit(ACTION.configPlayingTurn, { value: v }),
+              'select__table-size'
+            )}
+          </div>
+          <div class="start-modal__select-wrap">
+            <div class="start-modal__select-title">揃える枚数</div>
+            ${renderSelect(
+              FLIP_OPTION.map(selected(state.config.flipMatchingCount)),
+              v => emit(ACTION.configFlip, { value: v }),
+              'select__flip-matching-count'
+            )}
+          </div>
+          <div class="start-modal__select-wrap">
+            <div class="start-modal__select-title">カードの種類</div>
+            ${renderSelect(
+              TABLE_SIZE_OPTION.map(selected(state.config.tableSize)),
+              v => emit(ACTION.configTableSize, { value: v }),
+              'select__table-size'
+            )}
+          </div>
         </div>
-        <div class="modal__select-wrap">
-          <div class="modal__select-title">揃える枚数</div>
-          ${renderSelect(
-            FLIP_OPTION.map(selected(config.flipMatchingCount)),
-            v => emit(ACTION.configFlip, { value: v }),
-            'select__flip-matching-count'
-          )}
-        </div>
-        <div class="modal__select-wrap">
-          <div class="modal__select-title">カードの種類</div>
-          ${renderSelect(
-            TABLE_SIZE_OPTION.map(selected(config.tableSize)),
-            v => emit(ACTION.configTableSize, { value: v }),
-            'select__table-size'
-          )}
-        </div>
-      </div>
-    `
+      `
+    )
   )
+
+const startModalAnim = anim.create(
+  'reveal',
+  ACTION.reset,
+  ACTION.start,
+  300,
+  true
+)
 
 const clearText = playersSortedByCount => {
   if (
@@ -126,66 +141,66 @@ const clearText = playersSortedByCount => {
   }
 }
 
-const renderClearModal = clear => {
+const renderClearModal = state => {
+  const { clear } = state
   const players = Object.keys(clear)
   const playersSortedByCount = players
     .map(p => ({ count: clear[p].length, player: p }))
     .sort((a, b) => b.count - a.count)
-  return renderModal(
-    clearText(playersSortedByCount),
-    html`
-      <div>
-        <div class="result">
-          ${playersSortedByCount.map(
-            v => html`
-              <div class="result__item">
-                <div class="result__player">${PLAYER_TEXT[v.player]}</div>
-                <div class="result__count">${v.count}</div>
-                <div class="result__mai">マイ</div>
-              </div>
-            `
-          )}
+  return clearModalAnim.mount(
+    state,
+    renderModal(
+      {
+        label: clearText(playersSortedByCount),
+        class: cn(['clear-modal', clearModalAnim.class(state)])
+      },
+      html`
+        <div class="clear-modal__container">
+          <div class="clear-modal__display">
+            ${playersSortedByCount.map(
+              v => html`
+                <div class="clear-modal__item">
+                  <div class="clear-modal__player">
+                    ${PLAYER_TEXT[v.player]}
+                  </div>
+                  <div class="clear-modal__count">${v.count}</div>
+                  <div class="clear-modal__mai">マイ</div>
+                </div>
+              `
+            )}
+          </div>
+          <button
+            class="${cn(['button', 'clear-modal__button-reset'])}"
+            onclick="${() => emit(ACTION.reset)}"
+          >
+            最初から
+          </button>
         </div>
-        <button
-          class="${cn(['button', 'modal__button-reset'])}"
-          onclick="${() => emit(ACTION.reset)}"
-        >
-          最初から
-        </button>
-      </div>
-    `
+      `
+    )
   )
 }
 
-const renderStatusModal = (status, config, clear) => {
-  switch (status) {
-    case STATUS.START:
-      return renderStartModal(config)
-    case STATUS.COMPLETE:
-      return renderClearModal(clear)
-    default:
-      return ''
-  }
-}
+const clearModalAnim = anim.create('reveal', ACTION.clear, ACTION.reset, 300)
 
 const objValue = obj => Object.values(obj).flat()
 
-const render = ({
-  clear,
-  fliped,
-  table,
-  suit,
-  isSkipable,
-  status,
-  config,
-  playing
-}) => {
+const render = state => {
+  const {
+    clear,
+    fliped,
+    table,
+    suit,
+    isSkipable,
+    config,
+    playing,
+    status
+  } = state
   const isFlip = i => fliped.includes(i)
   const isClear = i => objValue(clear).includes(i)
-  const modal = renderStatusModal(status, config, clear)
   const headerText =
     fliped.length === config.flipMatchingCount
-      ? 'タップして裏に戻す'
+      ? 'タップしてうらに戻す'
       : playing === PLAYER.YOU
       ? `あなたの番です! あと${config.flipMatchingCount - fliped.length}マイ`
       : playing === PLAYER.AI
@@ -193,8 +208,8 @@ const render = ({
       : unreachable(playing)
   return html`
     <main class="root" ontouchstart="">
-      ${modal}
-      <div class="root__game">
+      ${renderStartModal(state)}${renderClearModal(state)}
+      <div class="${cn(['root__game', { active: status !== STATUS.START }])}">
         <div class="root__header">
           <div
             class="root__header-text button"
@@ -237,6 +252,7 @@ const initialState = () => {
   }
   return {
     config: initialConfig,
+    status: STATUS.START,
     ...initialGameState(initialConfig)
   }
 }
@@ -261,7 +277,6 @@ const initialGameState = config => {
       [PLAYER.AI]: []
     },
     playing: PLAYER.YOU,
-    status: STATUS.START,
     isSkipable: false
   }
 }
@@ -316,15 +331,15 @@ const mutation = (state, action, payload) => {
     case ACTION.configFlip: {
       const newConfig = { ...state.config, flipMatchingCount: payload.value }
       return {
-        config: newConfig,
-        ...initialGameState(newConfig)
+        ...state,
+        config: newConfig
       }
     }
     case ACTION.configTableSize: {
       const newConfig = { ...state.config, tableSize: payload.value }
       return {
-        config: newConfig,
-        ...initialGameState(newConfig)
+        ...state,
+        config: newConfig
       }
     }
     case ACTION.configPlayingTurn: {
@@ -335,16 +350,23 @@ const mutation = (state, action, payload) => {
       ]
       const newConfig = { ...state.config, playingTurn }
       return {
-        config: newConfig,
-        ...initialGameState(newConfig)
+        ...state,
+        config: newConfig
       }
     }
     case ACTION.start:
-      return { ...state, status: STATUS.PLAYING }
+      return {
+        ...state,
+        ...initialGameState(state.config),
+        status: STATUS.PLAYING
+      }
     case ACTION.reset:
-      return initialState()
+      return {
+        ...state,
+        status: STATUS.START
+      }
     default:
-      return state
+      return anim.mutation(state, action, payload)
   }
 }
 
@@ -370,6 +392,8 @@ function* gameCycle() {
       }
       if (yield* isCompleteCycle()) break
     }
+    yield effect.call(delay, 500)
+    yield effect.put(ACTION.clear)
     // リセットされるまで待つ
     yield effect.take(ACTION.reset)
   }
@@ -438,7 +462,9 @@ const { emit, use, run } = app(
   render
 )
 
-use(logger())
+use(logger(true))
 use(recycler(gameCycle))
+use(recycler(clearModalAnim.cycle))
+use(recycler(startModalAnim.cycle))
 
 run()

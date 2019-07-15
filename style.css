@@ -44,9 +44,14 @@ body {
 }
 
 .root__game {
+  display: none;
   z-index: 0;
   background-color: var(--color-bg);
   min-height: 100vh;
+}
+
+.root__game.active {
+  display: block;
 }
 
 .root__table {
@@ -206,21 +211,40 @@ body {
   text-align: center;
 }
 
-.modal__container {
-  width: 70vw;
-}
-
 .modal__label {
   font-size: 36px;
   color: var(--color-primary);
   margin-bottom: 8px;
 }
 
-.modal__select-wrap {
+.start-modal.reveal-active,
+.start-modal.reveal-reset-start {
+  opacity: 1;
+}
+
+.start-modal.reveal-start,
+.start-modal.reveal-reset-active {
+  opacity: 0;
+}
+
+.start-modal.reveal-active {
+  transition-property: opacity;
+  transition-duration: 0.3s;
+}
+.start-modal.reveal-reset-active {
+  transition-property: opacity;
+  transition-duration: 0.3s;
+}
+
+.start-modal__container {
+  width: 70vw;
+}
+
+.start-modal__select-wrap {
   margin-bottom: 12px;
 }
 
-.modal__button-start {
+.start-modal__button-start {
   color: var(--color-white);
   border-radius: var(--inf);
   font-size: 14px;
@@ -229,18 +253,10 @@ body {
   margin-bottom: 20px;
 }
 
-.modal__select-title {
+.start-modal__select-title {
   color: var(--color-primary);
   font-size: 12px;
   text-align: left;
-}
-
-.modal__button-reset {
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  font-size: 14px;
-  padding: 8px 0 7px;
-  border-radius: var(--inf);
 }
 
 .select {
@@ -266,30 +282,68 @@ body {
   border-color: var(--color-primary);
 }
 
-.result {
+.clear-modal.reveal-active {
+  transform: scale(1);
+  opacity: 1;
+}
+.clear-modal.reveal-reset-start {
+  opacity: 1;
+}
+
+.clear-modal.reveal-start {
+  transform: scale(0.7);
+  opacity: 0;
+}
+.clear-modal.reveal-reset-active {
+  opacity: 0;
+}
+
+.clear-modal.reveal-active {
+  transition-property: opacity, transform;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.39, 1.66, 0.3, 1.17);
+}
+.clear-modal.reveal-reset-active {
+  transition-property: opacity;
+  transition-duration: 0.3s;
+}
+
+.clear-modal__container {
+  width: 70vw;
+}
+
+.clear-modal__button-reset {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-size: 14px;
+  padding: 8px 0 7px;
+  border-radius: var(--inf);
+}
+
+.clear-modal__display {
   margin-bottom: 16px;
 }
 
-.result__item {
+.clear-modal__item {
   display: flex;
   color: var(--color-primary);
   align-items: flex-end;
   font-size: 12px;
 }
 
-.result__player {
-  flex-basis: 50%;
+.clear-modal__player {
+  flex-basis: calc(50% - 4px);
   text-align: right;
-  margin-right: 7px;
+  margin-right: 8px;
   margin-bottom: 6px;
 }
 
-.result__count {
+.clear-modal__count {
   text-align: left;
   font-size: 20px;
   margin-right: 1px;
 }
 
-.result__mai {
+.clear-modal__mai {
   margin-bottom: 6px;
 }

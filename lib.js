@@ -12,6 +12,30 @@ export const BUILTIN_ACTION = {
 export const app = ($target, initialState, mutation, render) => {
   let state = initialState
   const middlewares = []
+  const patchQueue = []
+  // requestAnimationFrameの戻り値
+  let requestId = null
+
+  const requestPatch = dom => {
+    // 1フレーム内で複数回patchingするのは無駄なのでQueueに詰める
+    // 最新しか使わないけど一応Queueに持っておく
+    patchQueue.push(dom)
+    // 次フレームをリクエスト
+    if (requestId === null) {
+      requestId = requestAnimationFrame(() => {
+        requestId = null
+        const latestDom = patchQueue[patchQueue.length - 1]
+        // patch処理
+        if (!($target.childNodes[0] instanceof Node)) {
+          $target.appendChild(latestDom)
+        } else {
+          updateDiffDom($target.childNodes[0], latestDom)
+        }
+        // Queueの削除
+        patchQueue.splice(0, patchQueue.length)
+      })
+    }
+  }
 
   const emit = (action, payload) => {
     const newState = mutation(state, action, payload)
@@ -19,12 +43,8 @@ export const app = ($target, initialState, mutation, render) => {
     const root = render(newState)
     // DOM構築(キャッシュ適用)
     const dom = compile(root)
-    // 差分更新
-    if (!($target.childNodes[0] instanceof Node)) {
-      $target.appendChild(dom)
-    } else {
-      updateDiffDom($target.childNodes[0], dom)
-    }
+    // 差分更新(patch処理)
+    requestPatch(dom)
     state = newState
     // ミドルウェア
     for (const mw of middlewares) {
@@ -570,10 +590,184 @@ export const delay = ms =>
     setTimeout(resolve, ms)
   })
 
+const nextFrame = () =>
+  new Promise(resolve => {
+    requestAnimationFrame(resolve)
+  })
+
+const ANIM_ACTION = '__ANIM__'
+const ANIM_STATE_PREFIX = '__anim__'
+const ANIM_STATE = {
+  START: 'start',
+  ACTIVE: 'active',
+  RESET_START: 'reset-start',
+  RESET_ACTIVE: 'reset-active',
+  RESET: 'reset'
+}
+
+const animCreate = (
+  name,
+  action,
+  resetAction,
+  duration,
+  activeImmediate = false
+) => {
+  const id = `_${randomString()}`
+  const animDescriptor = {
+    id,
+    name,
+    action,
+    resetAction,
+    activeImmediate,
+    duration
+  }
+  if (typeof duration !== 'number') {
+    console.error(`Invalid duration: ${duration}`)
+  }
+  return {
+    class: animClass(animDescriptor),
+    mount: animMount(animDescriptor),
+    cycle: animCycle(animDescriptor)
+  }
+}
+
+const animClass = animDescriptor => state => {
+  const { id, name } = animDescriptor
+  if (state[ANIM_STATE_PREFIX]) {
+    const animState = state[ANIM_STATE_PREFIX][id]
+    switch (animState) {
+      case ANIM_STATE.START:
+        return `${name}-${ANIM_STATE.START}`
+      case ANIM_STATE.ACTIVE:
+        return `${name}-${ANIM_STATE.ACTIVE}`
+      case ANIM_STATE.RESET_START:
+        return `${name}-${ANIM_STATE.RESET_START}`
+      case ANIM_STATE.RESET_ACTIVE:
+        return `${name}-${ANIM_STATE.RESET_ACTIVE}`
+      case ANIM_STATE.RESET:
+        return `${name}-${ANIM_STATE.RESET_ACTIVE}`
+      default:
+        return ''
+    }
+  } else {
+    return ''
+  }
+}
+
+const animMount = animDescriptor => (state, children) => {
+  const { id } = animDescriptor
+  if (state[ANIM_STATE_PREFIX] === undefined) return null
+  if (
+    [
+      ANIM_STATE.START,
+      ANIM_STATE.ACTIVE,
+      ANIM_STATE.RESET_START,
+      ANIM_STATE.RESET_ACTIVE
+    ].includes(state[ANIM_STATE_PREFIX][id])
+  ) {
+    return children
+  } else {
+    return null
+  }
+}
+
+const animMutaiton = (state, action, payload) => {
+  if (action === ANIM_ACTION) {
+    const { id, state: animState } = payload
+    return {
+      ...state,
+      [ANIM_STATE_PREFIX]: {
+        ...state[ANIM_STATE_PREFIX],
+        [id]: animState
+      }
+    }
+  } else {
+    return state
+  }
+}
+
+const animCycle = animDescriptor =>
+  function*() {
+    const {
+      id,
+      action,
+      resetAction,
+      activeImmediate,
+      duration
+    } = animDescriptor
+    yield effect.take(BUILTIN_ACTION.init)
+    if (activeImmediate) {
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.ACTIVE
+      })
+      yield effect.take(resetAction)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET_START
+      })
+      yield effect.call(nextFrame)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET_ACTIVE
+      })
+      yield effect.call(delay, duration)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET
+      })
+    } else {
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET
+      })
+    }
+    while (true) {
+      yield effect.take(action)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.START
+      })
+      yield effect.call(nextFrame)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.ACTIVE
+      })
+      yield effect.take(resetAction)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET_START
+      })
+      yield effect.call(nextFrame)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET_ACTIVE
+      })
+      yield effect.call(delay, duration)
+      yield effect.put(ANIM_ACTION, {
+        id,
+        state: ANIM_STATE.RESET
+      })
+    }
+  }
+
+export const anim = {
+  mutation: animMutaiton,
+  create: animCreate
+}
+
+const isBuiltinAction = action => /^__.+__$/.test(action)
+
 /**
  * ログを出力するミドルウェア
  */
-export const logger = () => _emit => getState => (action, payload) => {
+export const logger = (varbose = false) => _emit => getState => (
+  action,
+  payload
+) => {
+  if (!varbose && isBuiltinAction(action)) {
+    return
+  }
   console.log(
     `%c${getTimeString()} %c${action}%c %o %o`,
     styleObjectToString({
@@ -619,9 +813,12 @@ export const classNames = arrayClassNames =>
   arrayClassNames
     .filter(v => v)
     .flatMap(v => {
-      if (typeof v === 'object') {
+      if (typeof v === 'object' && !Array.isArray(v)) {
         return Object.keys(v).filter(k => v[k])
+      } else if (typeof v === 'string') {
+        return v.split(' ').map(v => v.trim())
       } else {
+        if (DEBUG) console.warn(`Invalid class name: %o`, v)
         return v
       }
     })
@@ -656,5 +853,5 @@ export const isSP = /(iP(hone|(o|a)d))|Android/.test(navigator.userAgent)
 export const DEBUG = location.hostname === 'localhost'
 
 export const unreachable = v => {
-  throw new Error('Unreachable! ${v}')
+  throw new Error(`Unreachable! ${v}`)
 }
