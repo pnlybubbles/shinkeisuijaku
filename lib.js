@@ -631,7 +631,7 @@ const EVENT_NAMES = Object.getOwnPropertyNames(HTMLElement.prototype).filter(
   v => v.slice(0, 2) === 'on'
 )
 
-function* zip(a, b) {
+export function* zip(a, b) {
   const minLength = Math.max(a.length, b.length)
   for (let i = 0; i < minLength; i++) {
     yield [a[i], b[i]]

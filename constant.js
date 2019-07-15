@@ -1,4 +1,9 @@
-export const BACK_CARD_PATH = './images/card_back.png'
+export const CARD_SUIT = {
+  SPADE: 'spade',
+  CLOVER: 'clover',
+  DIAMOND: 'diamond',
+  HEART: 'heart'
+}
 
 export const PLAYER = {
   YOU: 'YOU',

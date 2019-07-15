@@ -6,33 +6,42 @@ import {
   classNames as cn,
   delay,
   effect,
-  unreachable
+  unreachable,
+  zip
 } from './lib.js'
 import {
   ACTION,
   PLAYER,
   STATUS,
-  BACK_CARD_PATH,
   FLIP_OPTION,
   TABLE_SIZE_OPTION,
   START_PLAYER_OPTION,
-  PLAYER_TEXT
+  PLAYER_TEXT,
+  CARD_SUIT
 } from './constant.js'
 
-const cardPath = index =>
-  `./images/card_spade_${index.toString().padStart(2, '0')}.png`
+const cardSuitPath = suit => `./assets/suit_${suit}.svg`
 
-const renderCard = (number, index, isFlip, isClear) => {
+const renderCard = (number, suit, index, isFlip, isClear) => {
+  const isFront = isFlip || isClear
   return html`
-    <div class="card" onclick="${() => emit(ACTION.clickFlip, { index })}">
-      ${isFlip || isClear
-        ? html`
-            <img class="card__img front" src="${cardPath(number)}" />
-          `
-        : html`
-            <img class="card__img back" src="${BACK_CARD_PATH}" />
-          `}
-      <div class="${cn(['card__clear', { active: isClear }])}"></div>
+    <div class="card__container">
+      <div
+        class="${cn([
+          'card',
+          { front: isFront },
+          { back: !isFront },
+          { clear: isClear },
+          suit
+        ])}"
+        onclick="${() => emit(ACTION.clickFlip, { index })}"
+      >
+        <div class="card__img front">
+          <div class="card__number">${number}</div>
+          <img class="card__suit" src="${cardSuitPath(suit)}" />
+        </div>
+        <div class="card__img back"></div>
+      </div>
     </div>
   `
 }
@@ -72,15 +81,13 @@ const renderStartModal = config =>
     '神経衰弱',
     html`
       <div class="modal__container">
-        <div class="modal__button-wrap">
-          <button
-            class="${cn(['button', 'modal__button-start'])}"
-            onclick="${() => emit(ACTION.start)}"
-          >
-            スタート
-          </button>
-        </div>
-        <div class="modal__button-wrap">
+        <button
+          class="${cn(['button', 'modal__button-start'])}"
+          onclick="${() => emit(ACTION.start)}"
+        >
+          スタート
+        </button>
+        <div class="modal__select-wrap">
           <div class="modal__select-title">どっちから？</div>
           ${renderSelect(
             START_PLAYER_OPTION.map(selected(config.playingTurn[0])),
@@ -88,7 +95,7 @@ const renderStartModal = config =>
             'select__table-size'
           )}
         </div>
-        <div class="modal__button-wrap">
+        <div class="modal__select-wrap">
           <div class="modal__select-title">揃える枚数</div>
           ${renderSelect(
             FLIP_OPTION.map(selected(config.flipMatchingCount)),
@@ -96,7 +103,7 @@ const renderStartModal = config =>
             'select__flip-matching-count'
           )}
         </div>
-        <div class="modal__button-wrap">
+        <div class="modal__select-wrap">
           <div class="modal__select-title">カードの種類</div>
           ${renderSelect(
             TABLE_SIZE_OPTION.map(selected(config.tableSize)),
@@ -165,6 +172,7 @@ const render = ({
   clear,
   fliped,
   table,
+  suit,
   isSkipable,
   status,
   config,
@@ -184,10 +192,14 @@ const render = ({
   return html`
     <main class="root" ontouchstart="">
       ${modal}
-      <div class="${cn(['root__game', { blur: modal !== '' }])}">
-        <div class="root__header">${headerText}</div>
+      <div class="root__game">
+        <div class="root__header">
+          <div class="root__header-text">${headerText}</div>
+        </div>
         <div class="root__table">
-          ${table.map((v, i) => renderCard(v, i, isFlip(i), isClear(i)))}
+          ${table.map((v, i) =>
+            renderCard(v, suit[v], i, isFlip(i), isClear(i))
+          )}
         </div>
         <button
           class="${cn([
@@ -225,8 +237,14 @@ const initialGameState = config => {
     .fill(singleTable)
     .flat()
     .sort(() => Math.random() - 0.5)
+  const randomSuit = range(0, config.tableSize).map(_ =>
+    sample(Object.values(CARD_SUIT))
+  )
+  // suit = { [key: number]: CARD_SUIT }
+  const suit = Object.fromEntries(zip(singleTable, randomSuit))
   return {
     table,
+    suit,
     fliped: [],
     clear: {
       [PLAYER.YOU]: [],
@@ -373,6 +391,8 @@ function* youCycle() {
   return false
 }
 
+const sample = array => array[Math.floor(Math.random() * array.length)]
+
 function* aiCycle() {
   while (yield* continueTurnCycle()) {
     yield effect.call(delay, 1000)
@@ -382,7 +402,7 @@ function* aiCycle() {
       i => !fliped.includes(i) && !objValue(clear).includes(i)
     )
     yield effect.put(ACTION.flip, {
-      index: candidate[Math.floor(Math.random() * candidate.length)]
+      index: sample(candidate)
     })
   }
 }
