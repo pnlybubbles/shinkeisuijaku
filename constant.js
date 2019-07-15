@@ -20,7 +20,7 @@ export const FLIP_OPTION = [
   { label: '3マイ', value: 3 }
 ]
 export const TABLE_SIZE_OPTION = [
-  { label: '6シュ', value: 6 },
+  { label: '6シュ', value: 1 },
   { label: '8シュ', value: 8 },
   { label: '10シュ', value: 10 }
 ]
@@ -42,6 +42,7 @@ export const ACTION = {
   reset: 'RESET',
   start: 'START',
   skip: 'SKIP',
+  next: 'NEXT',
   changePlayer: 'CHANGE_PLAYER',
   configFlip: 'CONFIG_FLIP',
   configTableSize: 'CONFIG_TABLE_SIZE',

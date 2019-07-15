@@ -1,9 +1,10 @@
 :root {
   --card-width: 25%;
   --color-primary: #ea4646;
-  --color-primary-light: #fbcac4;
+  --color-primary-light: #ffdfd5;
+  --color-primary-shadow: rgba(234, 70, 70, 0.65);
   --color-secondary: #1b1b33;
-  --color-bg: #ffddd5;
+  --color-bg: #ffede2;
   --color-white: #fff;
   --inf: 10000000000px;
 }
@@ -18,6 +19,8 @@ body {
 .button {
   background-color: transparent;
   font-family: inherit;
+  font-weight: inherit;
+  font-size: inherit;
   width: 100%;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
@@ -25,6 +28,13 @@ body {
   user-select: none;
   text-align: center;
   text-decoration: none;
+  transition: all 0.1s;
+  border: 0;
+}
+
+.button:active {
+  transform: scale(0.95);
+  opacity: 0.9;
 }
 
 .root {
@@ -42,14 +52,14 @@ body {
 .root__table {
   display: flex;
   flex-wrap: wrap;
-  padding: 8px;
+  padding: 8px 8px 86px 8px;
 }
 
 .root__header {
   z-index: 1;
   position: sticky;
   top: 0;
-  padding: 20px 12px 8px 12px;
+  padding: 20px 12px 8px;
   background-color: var(--color-bg);
 }
 
@@ -61,32 +71,29 @@ body {
   border-radius: var(--inf);
   background-color: var(--color-primary);
   text-align: center;
+  transition: all 0.1s;
+}
+
+.root__footer {
+  position: fixed;
+  right: 0;
+  left: 0;
+  bottom: -100px;
+  padding: 0 12px 8px;
+  transition: bottom 0.3s;
+}
+
+.root__footer.active {
+  bottom: 20px;
 }
 
 .root__skip-button {
-  display: none;
-  position: fixed;
-  right: 10px;
-  bottom: 10px;
-  width: 62px;
-  height: 62px;
-  border: 2px solid var(--color-primary);
-  font-size: 14px;
-  border-radius: 100%;
-  line-height: 14px;
-  color: var(--color-primary);
-  padding: 0;
-  background-color: #fff;
-  text-align: center;
-}
-
-.root__skip-button:active {
+  border-radius: var(--inf);
   background-color: var(--color-primary);
-  color: #fff;
-}
-
-.root__skip-button.active {
-  display: block;
+  color: var(--color-white);
+  text-align: center;
+  padding: 8px 0 7px;
+  box-shadow: 0 4px 15px var(--color-primary-shadow);
 }
 
 .card__container {
@@ -97,15 +104,10 @@ body {
 
 .card {
   position: relative;
-  transition: all 0.1s;
 }
 
 .card:nth-child(4n) {
   margin-right: 0;
-}
-
-.card:active {
-  transform: scale(0.95);
 }
 
 .card::before {
@@ -220,18 +222,11 @@ body {
 
 .modal__button-start {
   color: var(--color-white);
-  border: 0;
   border-radius: var(--inf);
   font-size: 14px;
   padding: 6px;
   background-color: var(--color-primary);
   margin-bottom: 20px;
-  transition: all 0.1s;
-}
-
-.modal__button-start:active {
-  transform: scale(0.95);
-  opacity: 0.9;
 }
 
 .modal__select-title {
@@ -241,15 +236,11 @@ body {
 }
 
 .modal__button-reset {
-  border: 2px solid var(--color-primary);
-  color: var(--color-primary);
-  font-size: 14px;
-  padding: 8px;
-}
-
-.modal__button-reset:active {
   background-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-white);
+  font-size: 14px;
+  padding: 8px 0 7px;
+  border-radius: var(--inf);
 }
 
 .select {
@@ -269,12 +260,6 @@ body {
   font-size: 14px;
   padding: 4px;
   margin-right: 8px;
-  transition: all 0.1s;
-}
-
-.select__item:active {
-  transform: scale(0.95);
-  opacity: 0.9;
 }
 
 .select__item.active {
@@ -288,15 +273,23 @@ body {
 .result__item {
   display: flex;
   color: var(--color-primary);
+  align-items: flex-end;
+  font-size: 12px;
 }
 
 .result__player {
   flex-basis: 50%;
   text-align: right;
-  margin-right: 5px;
+  margin-right: 7px;
+  margin-bottom: 6px;
 }
 
 .result__count {
-  flex-basis: 50%;
   text-align: left;
+  font-size: 20px;
+  margin-right: 1px;
+}
+
+.result__mai {
+  margin-bottom: 6px;
 }

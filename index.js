@@ -29,6 +29,7 @@ const renderCard = (number, suit, index, isFlip, isClear) => {
       <div
         class="${cn([
           'card',
+          'button',
           { front: isFront },
           { back: !isFront },
           { clear: isClear },
@@ -139,7 +140,8 @@ const renderClearModal = clear => {
             v => html`
               <div class="result__item">
                 <div class="result__player">${PLAYER_TEXT[v.player]}</div>
-                <div class="result__count">${v.count}マイ</div>
+                <div class="result__count">${v.count}</div>
+                <div class="result__mai">マイ</div>
               </div>
             `
           )}
@@ -183,7 +185,7 @@ const render = ({
   const modal = renderStatusModal(status, config, clear)
   const headerText =
     fliped.length === config.flipMatchingCount
-      ? 'カードをタップして裏に戻す'
+      ? 'タップして裏に戻す'
       : playing === PLAYER.YOU
       ? `あなたの番です! あと${config.flipMatchingCount - fliped.length}マイ`
       : playing === PLAYER.AI
@@ -194,23 +196,31 @@ const render = ({
       ${modal}
       <div class="root__game">
         <div class="root__header">
-          <div class="root__header-text">${headerText}</div>
+          <div
+            class="root__header-text button"
+            onclick="${() => emit(ACTION.next)}"
+          >
+            ${headerText}
+          </div>
         </div>
         <div class="root__table">
           ${table.map((v, i) =>
             renderCard(v, suit[v], i, isFlip(i), isClear(i))
           )}
         </div>
-        <button
+        <div
           class="${cn([
-            'root__skip-button',
-            'button',
+            'root__footer',
             { active: isSkipable && playing == PLAYER.YOU }
           ])}"
-          onclick=${() => emit(ACTION.skip, {})}
         >
-          スキップ
-        </button>
+          <button
+            class="root__skip-button button"
+            onclick=${() => emit(ACTION.skip, {})}
+          >
+            スキップ
+          </button>
+        </div>
       </div>
     </main>
   `
@@ -414,6 +424,7 @@ function* unflipCycle(noWait) {
   if (!noWait) {
     yield effect.race({
       click: effect.take(ACTION.clickFlip),
+      next: effect.take(ACTION.next),
       timeout: effect.call(delay, 5000)
     })
   }
