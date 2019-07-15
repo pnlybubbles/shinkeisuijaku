@@ -140,28 +140,24 @@ const startModalAnim = anim.create(
   true
 )
 
-const clearText = playersSortedByCount => {
-  if (
-    playersSortedByCount.every(v => v.count === playersSortedByCount[0].count)
-  ) {
-    return 'ひきわけ!'
-  } else {
-    return `${PLAYER_TEXT[playersSortedByCount[0].player]}の勝ち!`
-  }
-}
-
 const renderClearModal = state => {
   const { clear } = state
   const players = Object.keys(clear)
   const playersSortedByCount = players
     .map(p => ({ count: clear[p].length, player: p }))
     .sort((a, b) => b.count - a.count)
-  const isWin = playersSortedByCount[0].player === PLAYER.YOU
+  const isDraw = playersSortedByCount.every(
+    v => v.count === playersSortedByCount[0].count
+  )
+  const isWin = !isDraw && playersSortedByCount[0].player === PLAYER.YOU
+  const clearText = isDraw
+    ? 'ひきわけ!'
+    : `${PLAYER_TEXT[playersSortedByCount[0].player]}の勝ち!`
   return clearModalAnim.mount(
     state,
     renderModal(
       {
-        label: clearText(playersSortedByCount),
+        label: clearText,
         class: cn(['clear-modal', clearModalAnim.class(state)])
       },
       html`
