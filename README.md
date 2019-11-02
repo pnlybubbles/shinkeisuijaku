@@ -1,6 +1,6 @@
 # shinkeisuijaku
 
-https://pnlybubbles-gomibako/shinkeisuijaku/
+https://pnlybubbles.github.io/shinkeisuijaku/
 
 - No library dependency
 - DOM diffing and patching
